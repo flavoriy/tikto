@@ -39,14 +39,18 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo 'Building Docker image on Jenkins agent using Docker Secret...'
+                echo 'Building Docker image on Jenkins agent...'
+                // Gọi file bí mật 'tikto' từ Credentials của Jenkins
                 withCredentials([file(credentialsId: 'tikto', variable: 'SECRET_ENV')]) {
                     sh '''
                         set -e
                         
-                        # Không dùng lệnh cp nữa, truyền thẳng file secret vào docker build
+                        # Sử dụng lệnh export để biến môi trường từ file secret nạp tạm thời vào phiên làm việc shell
+                        export $(cat "$SECRET_ENV" | xargs)
+                        
+                        # Truyền DATABASE_URL vào lệnh build thông qua tham số --build-arg
                         docker build \
-                          --secret id=dotenv,src="$SECRET_ENV" \
+                          --build-arg DATABASE_URL="$DATABASE_URL" \
                           -f "$DOCKERFILE" \
                           -t "$IMAGE_REF" \
                           "$MY_DOCKER_CONTEXT"
