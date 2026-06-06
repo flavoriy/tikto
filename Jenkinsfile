@@ -1,27 +1,11 @@
 @Library('jenkins-share-lib@main') _
 
 node('agent') {
-    properties([
-        parameters([
-            string(
-                name: 'IMAGE_REPOSITORY',
-                defaultValue: 'ghcr.io/Flavoriy/tikto',
-                description: 'GHCR image repository, for example ghcr.io/my-org/tikto'
-            ),
-            string(
-                name: 'DOCKERFILE',
-                defaultValue: 'Dockerfile',
-                description: 'Dockerfile path'
-            ),
-            string(
-                name: 'DOCKER_CONTEXT',
-                defaultValue: '.',
-                description: 'Docker build context'
-            )
-        ])
-    ])
-
     checkout scm
+
+    String imageRepository = (params.IMAGE_REPOSITORY ?: env.IMAGE_REPOSITORY ?: 'ghcr.io/Flavoriy/tikto').trim()
+    String dockerfile = (params.DOCKERFILE ?: env.DOCKERFILE ?: 'Dockerfile').trim()
+    String dockerContext = (params.DOCKER_CONTEXT ?: env.DOCKER_CONTEXT ?: '.').trim()
 
     buildApp(
         stageName: 'Clean Install',
@@ -36,9 +20,9 @@ node('agent') {
     )
 
     def imageRef = dockerBuild(
-        imageRepository: params.IMAGE_REPOSITORY,
-        dockerfile: params.DOCKERFILE,
-        context: params.DOCKER_CONTEXT
+        imageRepository: imageRepository,
+        dockerfile: dockerfile,
+        context: dockerContext
     )
 
     dockerPush(
