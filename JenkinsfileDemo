@@ -3,11 +3,16 @@ pipeline {
         label 'agent'
     }
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     environment {
         CI = 'true'
         NEXT_TELEMETRY_DISABLED = '1'
         REGISTRY = 'ghcr.io'
         IMAGE_REPOSITORY = 'ghcr.io/flavoriy/tikto'
+        IMAGE_VERSION_PREFIX = '1.0'
         IMAGE_EXTRA_TAG = 'latest'
         DOCKERFILE = 'Dockerfile'
         MY_DOCKER_CONTEXT = '.' 
@@ -23,17 +28,9 @@ pipeline {
         stage('Prepare Image Tag') {
             steps {
                 script {
-                    String branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'local'
-                    String commit = env.GIT_COMMIT ?: sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
-                    String rawTag = "${branchName}-${commit.take(12)}-${env.BUILD_NUMBER ?: '0'}"
+                    String buildNumber = env.BUILD_NUMBER ?: '0'
 
-                    // Ép toàn bộ định dạng chuỗi tag về chữ thường (lowercase) để Docker an tâm build
-                    env.IMAGE_TAG = rawTag
-                        .replaceFirst(/^origin\//, '')
-                        .replaceAll(/[^A-Za-z0-9_.-]/, '-')
-                        .take(128)
-                        .toLowerCase()
-                        
+                    env.IMAGE_TAG = "${env.IMAGE_VERSION_PREFIX}.${buildNumber}"
                     env.IMAGE_REF = "${env.IMAGE_REPOSITORY}:${env.IMAGE_TAG}"
                     env.IMAGE_EXTRA_REF = "${env.IMAGE_REPOSITORY}:${env.IMAGE_EXTRA_TAG}"
 
@@ -49,11 +46,17 @@ pipeline {
                 withCredentials([file(credentialsId: 'tikto', variable: 'SECRET_ENV')]) {
                     sh '''
                         set -e
+                        set +x
                         
-                        # Sử dụng sed để loại bỏ comment (#) và các dòng trống trước khi export
-                        export $(sed 's/#.*//g' "$SECRET_ENV" | xargs)
+                        if ! command -v docker >/dev/null 2>&1; then
+                          echo "Docker is not installed or not available in PATH on this Jenkins agent." >&2
+                          exit 127
+                        fi
+
+                        set -a
+                        . "$SECRET_ENV"
+                        set +a
                         
-                        # Tiến hành build và truyền biến vào
                         docker build \
                           --build-arg DATABASE_URL="$DATABASE_URL" \
                           -f "$DOCKERFILE" \
