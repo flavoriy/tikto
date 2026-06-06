@@ -9,7 +9,9 @@ pipeline {
         REGISTRY = 'ghcr.io'
         IMAGE_REPOSITORY = 'ghcr.io/Flavoriy/tikto'
         DOCKERFILE = 'Dockerfile'
-        DOCKER_CONTEXT = '.'
+        
+        // Đổi thành MY_DOCKER_CONTEXT để không bị trùng với biến môi trường hệ thống của Jenkins
+        MY_DOCKER_CONTEXT = '.' 
     }
 
     stages {
@@ -59,7 +61,8 @@ pipeline {
                 echo 'Building Docker image on Jenkins agent...'
                 sh '''
                     set -e
-                    docker build -f "$DOCKERFILE" -t "$IMAGE_REF" "$DOCKER_CONTEXT"
+                    # Sử dụng biến MY_DOCKER_CONTEXT đã được đổi tên ở đây
+                    docker build -f "$DOCKERFILE" -t "$IMAGE_REF" "$MY_DOCKER_CONTEXT"
                 '''
             }
         }
