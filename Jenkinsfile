@@ -1,11 +1,11 @@
-@Library('jenkins-share-lib') _
+@Library('jenkins-share-lib@main') _
 
 node('linux') {
     properties([
         parameters([
             string(
                 name: 'IMAGE_REPOSITORY',
-                defaultValue: 'ghcr.io/your-org/tikto',
+                defaultValue: 'ghcr.io/Flavoriy/tikto',
                 description: 'GHCR image repository, for example ghcr.io/my-org/tikto'
             ),
             string(
