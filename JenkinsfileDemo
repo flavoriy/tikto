@@ -19,14 +19,19 @@ pipeline {
             }
         }
 
-        stage('Clean Install') {
-            steps {
-                sh 'npm ci'
+        stage('Clean Install & Build') {
+            agent {
+                docker {
+                    image 'node:20-alpine'
+                    args '-v $HOME/.npm:/root/.npm'
+                    reuseNode true
+                }
             }
-        }
-
-        stage('Build') {
             steps {
+                echo 'Running Node.js build inside node:20-alpine container...'
+                sh 'node -v'
+                sh 'npm -v'
+                sh 'npm ci'
                 sh 'npm run build'
             }
         }
@@ -51,6 +56,7 @@ pipeline {
 
         stage('Docker Build') {
             steps {
+                echo 'Building Docker image on Jenkins agent...'
                 sh '''
                     set -e
                     docker build -f "$DOCKERFILE" -t "$IMAGE_REF" "$DOCKER_CONTEXT"
@@ -60,6 +66,7 @@ pipeline {
 
         stage('Docker Push GHCR') {
             steps {
+                echo 'Pushing Docker image to GHCR...'
                 withCredentials([usernamePassword(credentialsId: 'ghcr-token', usernameVariable: 'REGISTRY_USERNAME', passwordVariable: 'REGISTRY_TOKEN')]) {
                     sh '''
                         set -e
