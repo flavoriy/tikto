@@ -19,6 +19,10 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+ARG DATABASE_URL
+# Đưa biến ARG đó thành biến Môi trường ENV phục vụ cho lệnh build kế tiếp
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npm run build
 
 FROM base AS runner
