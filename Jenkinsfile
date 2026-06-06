@@ -1,6 +1,6 @@
 @Library('jenkins-share-lib@main') _
 
-node('linux') {
+node('agent') {
     properties([
         parameters([
             string(
