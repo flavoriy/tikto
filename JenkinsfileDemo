@@ -7,7 +7,7 @@ pipeline {
         CI = 'true'
         NEXT_TELEMETRY_DISABLED = '1'
         REGISTRY = 'ghcr.io'
-        IMAGE_REPOSITORY = 'ghcr.io/Flavoriy/tikto'
+        IMAGE_REPOSITORY = 'ghcr.io/flavoriy/tikto'
         DOCKERFILE = 'Dockerfile'
         MY_DOCKER_CONTEXT = '.' 
     }
