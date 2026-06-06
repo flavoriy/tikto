@@ -39,20 +39,17 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo 'Building Docker image on Jenkins agent with .env file...'
-                // Gọi credential với ID là 'tikto'
+                echo 'Building Docker image on Jenkins agent using Docker Secret...'
                 withCredentials([file(credentialsId: 'tikto', variable: 'SECRET_ENV')]) {
                     sh '''
                         set -e
                         
-                        # Sao chép file cấu hình ra tên đúng là .env
-                        cp "$SECRET_ENV" .env
-                        
-                        # Tiến hành build docker
-                        docker build -f "$DOCKERFILE" -t "$IMAGE_REF" "$MY_DOCKER_CONTEXT"
-                        
-                        # Xóa file .env sau khi build xong để đảm bảo bảo mật cho máy agent
-                        rm -f .env
+                        # Không dùng lệnh cp nữa, truyền thẳng file secret vào docker build
+                        docker build \
+                          --secret id=dotenv,src="$SECRET_ENV" \
+                          -f "$DOCKERFILE" \
+                          -t "$IMAGE_REF" \
+                          "$MY_DOCKER_CONTEXT"
                     '''
                 }
             }
