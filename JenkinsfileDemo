@@ -1,0 +1,76 @@
+pipeline {
+    agent {
+        label 'agent'
+    }
+
+    environment {
+        CI = 'true'
+        NEXT_TELEMETRY_DISABLED = '1'
+        REGISTRY = 'ghcr.io'
+        IMAGE_REPOSITORY = 'ghcr.io/Flavoriy/tikto'
+        DOCKERFILE = 'Dockerfile'
+        DOCKER_CONTEXT = '.'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Clean Install') {
+            steps {
+                sh 'npm ci'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'npm run build'
+            }
+        }
+
+        stage('Prepare Image Tag') {
+            steps {
+                script {
+                    String branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'local'
+                    String commit = env.GIT_COMMIT ?: sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
+                    String rawTag = "${branchName}-${commit.take(12)}-${env.BUILD_NUMBER ?: '0'}"
+
+                    env.IMAGE_TAG = rawTag
+                        .replaceFirst(/^origin\//, '')
+                        .replaceAll(/[^A-Za-z0-9_.-]/, '-')
+                        .take(128)
+                    env.IMAGE_REF = "${env.IMAGE_REPOSITORY}:${env.IMAGE_TAG}"
+
+                    echo "Docker image: ${env.IMAGE_REF}"
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    set -e
+                    docker build -f "$DOCKERFILE" -t "$IMAGE_REF" "$DOCKER_CONTEXT"
+                '''
+            }
+        }
+
+        stage('Docker Push GHCR') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'ghcr-token', usernameVariable: 'REGISTRY_USERNAME', passwordVariable: 'REGISTRY_TOKEN')]) {
+                    sh '''
+                        set -e
+                        set +x
+                        echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
+                        set -x
+                        docker push "$IMAGE_REF"
+                        docker logout "$REGISTRY"
+                    '''
+                }
+            }
+        }
+    }
+}
