@@ -1,0 +1,240 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "auth"]
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+
+  @@schema("public")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("public")
+}
+
+enum SyncStatus {
+  LOCAL_ONLY
+  PENDING_CREATE
+  PENDING_UPDATE
+  PENDING_DELETE
+  SYNCED
+  FAILED
+
+  @@schema("public")
+}
+
+enum SyncDirection {
+  APP_TO_GOOGLE
+  GOOGLE_TO_APP
+
+  @@schema("public")
+}
+
+enum ImportState {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+
+  @@schema("public")
+}
+
+enum ReminderTargetType {
+  TASK
+  EVENT
+
+  @@schema("public")
+}
+
+enum ReminderChannel {
+  TELEGRAM
+
+  @@schema("public")
+}
+
+enum ReminderStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  CANCELED
+
+  @@schema("public")
+}
+
+model Profile {
+  id                                 String                   @id @db.Uuid
+  email                              String                   @unique
+  name                               String?
+  avatarUrl                          String?                  @map("avatar_url")
+  timezone                           String                   @default("Asia/Ho_Chi_Minh")
+  defaultTaskReminderOffsetsMinutes  Int[]                    @default([]) @map("default_task_reminder_offsets_minutes")
+  defaultEventReminderOffsetsMinutes Int[]                    @default([]) @map("default_event_reminder_offsets_minutes")
+  tasks                              Task[]
+  events                             Event[]
+  reminders                          Reminder[]
+  googleIntegration                  GoogleIntegration?
+  telegramIntegration                TelegramIntegration?
+  telegramConnectionCodes            TelegramConnectionCode[]
+  createdAt                          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model Task {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  title             String
+  description       String?
+  status            TaskStatus
+  priority          TaskPriority
+  dueDate           String?        @map("due_date") @db.VarChar(10)
+  dueTime           String?        @map("due_time") @db.VarChar(5)
+  dueAtUtc          DateTime?      @map("due_at_utc") @db.Timestamptz(6)
+  completedAt       DateTime?      @map("completed_at") @db.Timestamptz(6)
+  googleTaskId      String?        @map("google_task_id")
+  googleTasklistId  String?        @map("google_tasklist_id")
+  googleEtag        String?        @map("google_etag")
+  googleUpdatedAt   DateTime?      @map("google_updated_at") @db.Timestamptz(6)
+  syncStatus        SyncStatus     @default(LOCAL_ONLY) @map("sync_status")
+  lastSyncDirection SyncDirection? @map("last_sync_direction")
+  lastSyncedAt      DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  syncError         String?        @map("sync_error")
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile           Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([googleTaskId])
+  @@map("tasks")
+  @@schema("public")
+}
+
+model Event {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  title             String
+  description       String?
+  color             String?
+  isAllDay          Boolean        @default(false) @map("is_all_day")
+  startAtUtc        DateTime?      @map("start_at_utc") @db.Timestamptz(6)
+  endAtUtc          DateTime?      @map("end_at_utc") @db.Timestamptz(6)
+  startDate         String?        @map("start_date") @db.VarChar(10)
+  endDate           String?        @map("end_date") @db.VarChar(10)
+  googleEventId     String?        @map("google_event_id")
+  googleCalendarId  String?        @map("google_calendar_id")
+  googleEtag        String?        @map("google_etag")
+  googleUpdatedAt   DateTime?      @map("google_updated_at") @db.Timestamptz(6)
+  syncStatus        SyncStatus     @default(LOCAL_ONLY) @map("sync_status")
+  lastSyncDirection SyncDirection? @map("last_sync_direction")
+  lastSyncedAt      DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  syncError         String?        @map("sync_error")
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile           Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate])
+  @@index([userId, startAtUtc])
+  @@index([googleEventId])
+  @@map("events")
+  @@schema("public")
+}
+
+model Reminder {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String             @map("user_id") @db.Uuid
+  targetType           ReminderTargetType @map("target_type")
+  targetId             String             @map("target_id") @db.Uuid
+  offsetMinutes        Int                @map("offset_minutes")
+  remindAtUtc          DateTime           @map("remind_at_utc") @db.Timestamptz(6)
+  channel              ReminderChannel
+  status               ReminderStatus     @default(SCHEDULED)
+  externalJobId        String?            @map("external_job_id")
+  deliveryAttemptCount Int                @default(0) @map("delivery_attempt_count")
+  lastError            String?            @map("last_error")
+  sentAt               DateTime?          @map("sent_at") @db.Timestamptz(6)
+  canceledAt           DateTime?          @map("canceled_at") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile              Profile            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, targetType, targetId])
+  @@map("reminders")
+  @@schema("public")
+}
+
+model GoogleIntegration {
+  id                      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String      @unique @map("user_id") @db.Uuid
+  googleAccountEmail      String      @map("google_account_email")
+  accessTokenEncrypted    String      @map("access_token_encrypted")
+  refreshTokenEncrypted   String      @map("refresh_token_encrypted")
+  tokenExpiresAt          DateTime    @map("token_expires_at") @db.Timestamptz(6)
+  calendarEnabled         Boolean     @default(false) @map("calendar_enabled")
+  tasksEnabled            Boolean     @default(false) @map("tasks_enabled")
+  calendarId              String?     @default("primary") @map("calendar_id")
+  defaultTasklistId       String?     @default("@default") @map("default_tasklist_id")
+  calendarImportState     ImportState @default(NOT_STARTED) @map("calendar_import_state")
+  tasksImportState        ImportState @default(NOT_STARTED) @map("tasks_import_state")
+  calendarImportSummary   Json?       @map("calendar_import_summary")
+  tasksImportSummary      Json?       @map("tasks_import_summary")
+  calendarSyncToken       String?     @map("calendar_sync_token")
+  calendarWatchChannelId  String?     @map("calendar_watch_channel_id")
+  calendarWatchResourceId String?     @map("calendar_watch_resource_id")
+  calendarWatchExpireAt   DateTime?   @map("calendar_watch_expire_at") @db.Timestamptz(6)
+  lastCalendarSyncAt      DateTime?   @map("last_calendar_sync_at") @db.Timestamptz(6)
+  lastTasksSyncAt         DateTime?   @map("last_tasks_sync_at") @db.Timestamptz(6)
+  lastError               String?     @map("last_error")
+  createdAt               DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile                 Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("google_integrations")
+  @@schema("public")
+}
+
+model TelegramIntegration {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  botTokenEncrypted String?  @map("bot_token_encrypted")
+  chatId            String   @map("chat_id")
+  telegramUsername  String?  @map("telegram_username")
+  isEnabled         Boolean  @default(true) @map("is_enabled")
+  connectedAt       DateTime @default(now()) @map("connected_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile           Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_integrations")
+  @@schema("public")
+}
+
+model TelegramConnectionCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  code      String    @unique
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  profile   Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_connection_codes")
+  @@schema("public")
+}

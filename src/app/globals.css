@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --panel-muted: #f1f5f9;
+  --border: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #16a34a;
+  --accent-soft: #dcfce7;
+  --accent-strong: #15803d;
+  --danger: #dc2626;
+  --success: #166534;
+  --sidebar: #fafbfc;
+  --sidebar-foreground: #0f172a;
+  --sidebar-muted: #94a3b8;
+  --shadow-card:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 16px rgba(15, 23, 42, 0.05);
+  --shadow-sidebar:
+    0 8px 32px rgba(15, 23, 42, 0.06);
+  --shadow-accent:
+    0 8px 20px rgba(22, 163, 74, 0.22);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-panel-muted: var(--panel-muted);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --font-sans:
+    var(--font-be-vietnam),
+    "Be Vietnam Pro",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif;
+  --font-mono:
+    "Cascadia Code",
+    "SFMono-Regular",
+    "Menlo",
+    monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(22, 163, 74, 0.15);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Transitions on interactive elements */
+button,
+a,
+input,
+select,
+textarea {
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+button:active,
+a:active {
+  opacity: 0.75;
+}
+
+/* Utilities */
+.app-shell {
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.surface-panel {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+}
+
+.page-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: var(--font-mono), monospace;
+}
+
+.section-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.panel-muted {
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+}
+
+.task-complete-pop {
+  animation: task-complete-pop 0.52s ease-out;
+}
+
+@keyframes task-complete-pop {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-card);
+  }
+  38% {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: 0 18px 40px rgba(22, 163, 74, 0.18);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-card);
+  }
+}
