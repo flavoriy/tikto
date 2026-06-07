@@ -3,7 +3,7 @@
 node('agent') {
     checkout scm
 
-    String imageRepository = (params.IMAGE_REPOSITORY ?: env.IMAGE_REPOSITORY ?: 'ghcr.io/Flavoriy/tikto').trim()
+    String imageRepository = (params.IMAGE_REPOSITORY ?: env.IMAGE_REPOSITORY ?: 'ghcr.io/flavoriy/tikto').trim()
     String dockerfile = (params.DOCKERFILE ?: env.DOCKERFILE ?: 'Dockerfile').trim()
     String dockerContext = (params.DOCKER_CONTEXT ?: env.DOCKER_CONTEXT ?: '.').trim()
 
