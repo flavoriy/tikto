@@ -41,11 +41,35 @@ export const getCurrentProfile = cache(async function getCurrentProfile() {
   const { prisma } = await import("@/lib/db/prisma");
 
   try {
-    return await prisma.profile.findUnique({
+    const profile = await prisma.profile.findUnique({
       where: {
         id: user.id,
       },
     });
+
+    if (profile) {
+      return profile;
+    }
+
+    // Fallback: create profile if database trigger wasn't run
+    try {
+      return await prisma.profile.create({
+        data: {
+          id: user.id,
+          email: user.email ?? "",
+          name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "User",
+          avatarUrl: user.user_metadata?.avatar_url ?? null,
+          timezone: "Asia/Ho_Chi_Minh",
+        },
+      });
+    } catch (createError) {
+      console.error("[auth] Failed to automatically create profile fallback:", createError);
+      return await prisma.profile.findUnique({
+        where: {
+          id: user.id,
+        },
+      });
+    }
   } catch (error) {
     unstable_rethrow(error);
     console.error("[auth] profile lookup failed:", error);
