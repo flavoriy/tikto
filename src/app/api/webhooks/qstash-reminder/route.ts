@@ -18,9 +18,17 @@ async function handleReminderWebhook(request: Request) {
   }
 }
 
-const webhookUrl = process.env.NEXT_PUBLIC_APP_URL
-  ? new URL("/api/webhooks/qstash-reminder", process.env.NEXT_PUBLIC_APP_URL).toString()
-  : undefined;
+let webhookUrl: string | undefined = undefined;
+if (process.env.NEXT_PUBLIC_APP_URL) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL.includes("://")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : `https://${process.env.NEXT_PUBLIC_APP_URL}`;
+    webhookUrl = new URL("/api/webhooks/qstash-reminder", baseUrl).toString();
+  } catch (error) {
+    console.warn("Failed to parse NEXT_PUBLIC_APP_URL. Webhook signature verification url configuration will be bypassed.", error);
+  }
+}
 
 const hasSigningKeys = Boolean(
   process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NEXT_SIGNING_KEY,
