@@ -15,7 +15,7 @@ on:
 env:
   AWS_REGION: ap-southeast-1
   AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-  AWS_SHARED_SECRET_ID: jenkins/tikto/shared
+  AWS_SHARED_SECRET_ID: tikto/shared
   AWS_APP_SECRET_PREFIX: tikto
   REGISTRY: ghcr.io
   IMAGE_REPOSITORY: ghcr.io/flavoriy/tikto
@@ -55,7 +55,7 @@ jobs:
       - name: Load App Secret
         uses: ./.github/actions/load-aws-secrets
         with:
-          secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}/app
+          secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
           region: ${{ env.AWS_REGION }}
 
       - name: Prepare Docker Image

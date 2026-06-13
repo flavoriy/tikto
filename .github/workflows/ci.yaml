@@ -6,7 +6,7 @@ on:
 env:
   AWS_REGION: ap-southeast-1
   AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-  AWS_SHARED_SECRET_ID: jenkins/tikto/shared
+  AWS_SHARED_SECRET_ID: tikto/shared
   CI: 'true'
   NEXT_TELEMETRY_DISABLED: '1'
   DATABASE_URL: postgresql://ci:ci@localhost:5432/tikto?schema=public

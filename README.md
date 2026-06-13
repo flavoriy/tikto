@@ -101,9 +101,9 @@ For branch deployments, configure repository secret:
 
 The workflow reads these AWS Secrets Manager secrets in `ap-southeast-1`:
 
-- `jenkins/tikto/shared`
-- `tikto/dev/app`
-- `tikto/prod/app`
+- `tikto/shared`
+- `tikto/dev`
+- `tikto/prod`
 
 The IAM role needs `secretsmanager:GetSecretValue` for those secrets. The shared secret should contain values such as `SONAR_TOKEN`, `GHCR_USERNAME`, `GHCR_TOKEN`, `GITOPS_USERNAME`, `GITOPS_TOKEN`, `ARGOCD_SERVER`, and `ARGOCD_TOKEN`.
 
