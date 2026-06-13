@@ -80,6 +80,7 @@ jobs:
           fi
 
           args=(
+            "-Dsonar.host.url=${SONAR_HOST_URL}"
             "-Dsonar.qualitygate.wait=true"
             "-Dsonar.qualitygate.timeout=${SONAR_QUALITY_GATE_TIMEOUT:-300}"
           )
