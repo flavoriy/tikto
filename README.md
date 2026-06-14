@@ -1,21 +1,21 @@
 # TikTo Application
 
-TikTo is the application repository for a cloud-native DevOps platform. The product is a task and calendar planning app built with Next.js, TypeScript, Supabase, and Prisma. In the full platform, this repository is also responsible for CI validation, Docker image delivery, vulnerability scanning, GitOps manifest updates, and Argo CD deployment verification.
+TikTo is a task and calendar planning application built with Next.js, TypeScript, Supabase, and Prisma. This repository contains the application source code and the CI/CD workflows used to validate, package, scan, publish, and deploy the application through GitOps.
 
-The application is named `taskflow` in `package.json` and is deployed under the `tikto` Kubernetes application slug.
+The package name is `taskflow`; the Kubernetes workload is deployed with the `tikto` application slug.
 
-## Implementation Highlights
+## Key Capabilities
 
-- Built a Next.js 16 App Router application with authenticated dashboard routes and API endpoints.
-- Implemented task, event, profile, integration, and dashboard service layers with repository-based data access.
-- Integrated Supabase Auth, Supabase PostgreSQL, Prisma, Google OAuth foundations, Google Calendar/Tasks sync foundations, Telegram settings, and QStash reminder webhook foundations.
-- Added Vitest unit tests for services, validation logic, utility functions, API helpers, integrations, and date handling.
-- Built a Docker image pipeline that scans images with Trivy and publishes to GHCR.
-- Implemented GitHub Actions reusable workflows and composite actions for CI/CD, AWS Secrets Manager loading, image tagging, GitOps updates, and Argo CD verification.
+- Next.js 16 App Router application with authenticated dashboard routes and API endpoints.
+- Task, event, profile, integration, and dashboard service layers backed by repository-based data access.
+- Supabase Auth, Supabase PostgreSQL, Prisma, Google OAuth foundations, Google Calendar/Tasks sync foundations, Telegram settings, and QStash reminder webhook foundations.
+- Reusable GitHub Actions workflows for ESLint analysis, TypeScript validation, unit testing, coverage reporting, production builds, and SonarCloud quality-gate checks.
+- Docker image delivery pipeline with environment-scoped version tags, Trivy HIGH/CRITICAL vulnerability scanning, and GHCR publishing.
+- Composite GitHub Actions for AWS Secrets Manager loading, image tag generation, GitOps manifest updates, and Argo CD deployment verification.
 
 ## Application Features
 
-Implemented:
+Available features:
 
 - Email/password authentication (with automatic registration if the account doesn't exist) and Google OAuth sign-in through Supabase Auth.
 - Protected dashboard layout with responsive navigation.
@@ -27,13 +27,13 @@ Implemented:
 - Telegram integration settings and reminder delivery foundations.
 - Health endpoint for Kubernetes readiness checks.
 
-Known partial areas:
+In progress:
 
-- Calendar watch renewal exists as a route, but full production automation is still a future improvement.
+- Calendar watch renewal exists as a route; longer-running automation is planned for production-style operation.
 - Existing Supabase databases should rerun the SQL setup/schema scripts when new reminder or sync columns are added.
-- Some integration flows require real third-party credentials and webhook configuration to be tested end to end.
+- End-to-end integration testing requires live third-party credentials and webhook configuration.
 
-## Tech Stack
+## Technology Stack
 
 | Area | Technology |
 |---|---|
@@ -50,7 +50,7 @@ Known partial areas:
 | Container | Docker, GHCR, Trivy |
 | Integrations | Google Calendar, Google Tasks, Telegram, QStash foundations |
 
-## Repository Layout
+## Repository Structure
 
 ```text
 .
@@ -165,7 +165,7 @@ ghcr.io/flavoriy/tikto:dev-42
 ghcr.io/flavoriy/tikto:prod-43
 ```
 
-The tag format is `<environment>-<github.run_number>`. This keeps each deployment tag unique, avoids reusing `v0.0.1`, and makes the deployed image traceable from GitOps back to the GitHub Actions run.
+The tag format is `<environment>-<github.run_number>`. This keeps each deployment tag unique, avoids the old static `v0.0.1` pattern, and makes the running image traceable back to the GitHub Actions run.
 
 ## GitHub Actions CI/CD
 
@@ -179,8 +179,8 @@ Reusable workflows:
 
 | Workflow | Responsibility |
 |---|---|
-| `.github/workflows/ci.yaml` | Lint, typecheck, build, unit tests with coverage, and SonarCloud analysis |
-| `.github/workflows/cd.yaml` | Docker build, Trivy scan, GHCR push, GitOps manifest update, and Argo CD verification |
+| `.github/workflows/ci.yaml` | ESLint analysis, TypeScript validation, production build, unit tests with coverage, and SonarCloud analysis |
+| `.github/workflows/cd.yaml` | Docker build, HIGH/CRITICAL Trivy scan, GHCR push, GitOps manifest update, and Argo CD verification |
 
 Composite actions:
 
@@ -201,7 +201,7 @@ Pipeline behavior:
 | Push or merge to `main` | Runs CI and deploys through the protected `prod` GitHub Environment |
 | Manual dispatch | Runs the same workflow manually |
 
-## Delivery Flow
+## Delivery Workflow
 
 1. GitHub Actions validates linting, types, tests, coverage, and production build.
 2. SonarCloud runs quality analysis when configured for the event.
@@ -218,7 +218,7 @@ apps/tikto/overlays/<env>/patch-image.yaml
 
 9. Argo CD sync and image verification run when Argo CD access is configured.
 
-## Required CI/CD Configuration
+## CI/CD Configuration
 
 GitHub repository secret:
 
@@ -235,9 +235,3 @@ AWS Secrets Manager secrets in `ap-southeast-1`:
 | `tikto/prod` | Production runtime and build values |
 
 The IAM role needs `secretsmanager:GetSecretValue` access for those secret IDs.
-
-## Current Limitations
-
-- This repository is scoped as a reference implementation rather than a commercial production service.
-- Some external integrations need live credentials, webhook setup, and longer-running jobs to be tested fully end to end.
-- Database migrations are currently documented through SQL/Prisma assets and should be hardened further for automated production rollout.
