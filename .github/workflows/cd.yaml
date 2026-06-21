@@ -69,9 +69,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Docker Build
+        env:
+          DOCKER_BUILDKIT: '1'
         run: |
           docker build \
-            --build-arg DATABASE_URL \
+            --secret id=DATABASE_URL,env=DATABASE_URL \
             --build-arg NEXT_PUBLIC_APP_URL \
             --build-arg NEXT_PUBLIC_SUPABASE_URL \
             --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
