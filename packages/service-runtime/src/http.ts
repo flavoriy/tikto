@@ -1,6 +1,6 @@
 import "./bootstrap";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { AppError, toApiError } from "./errors";
@@ -53,6 +53,12 @@ function decodedHeaderValue(request: IncomingMessage, name: string) {
   }
 }
 
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const aHash = createHash("sha256").update(a).digest();
+  const bHash = createHash("sha256").update(b).digest();
+  return timingSafeEqual(aHash, bHash);
+}
+
 export function requireInternalRequest(request: IncomingMessage) {
   const configuredKey = process.env.TIKTO_INTERNAL_API_KEY;
 
@@ -60,7 +66,8 @@ export function requireInternalRequest(request: IncomingMessage) {
     return;
   }
 
-  if (headerValue(request, "x-tikto-internal-key") !== configuredKey) {
+  const presentedKey = headerValue(request, "x-tikto-internal-key");
+  if (!presentedKey || !timingSafeStringEqual(presentedKey, configuredKey)) {
     throw new AppError(401, "UNAUTHORIZED", "Invalid internal API key.");
   }
 }
