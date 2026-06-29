@@ -1,5 +1,7 @@
 # TikTo
 
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=flavoriy_tikto)](https://sonarcloud.io/summary/new_code?id=flavoriy_tikto)
+
 TikTo is a workspace monorepo split into one public web/BFF app and four internal services.
 
 ```text
