@@ -20,6 +20,7 @@ FROM deps AS builder
 COPY packages ./packages
 COPY services/calendar ./services/calendar
 COPY tsconfig.services.json tsconfig.services.base.json ./
+COPY scripts ./scripts
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tikto
 RUN npm run service:calendar:build
 RUN npm prune --omit=dev --ignore-scripts && npm cache clean --force
