@@ -1,19 +1,31 @@
 {
-  "name": "taskflow",
+  "name": "tikto",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
+    "dev": "npm --workspace @tikto/web run dev",
+    "web:build": "npm --workspace @tikto/web run build",
+    "build": "npm run services:generate && npm run web:build && npm run services:build",
+    "start": "npm --workspace @tikto/web run start",
     "lint": "eslint",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:format": "prisma format"
+    "typecheck": "npm run services:generate && tsc --noEmit && tsc -p tsconfig.services.json --noEmit && npm --workspace @tikto/web run typecheck",
+    "postinstall": "prisma generate --schema prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:format": "prisma format --schema prisma/schema.prisma",
+    "services:generate": "prisma generate --schema services/profile/prisma/schema.prisma && prisma generate --schema services/tasks/prisma/schema.prisma && prisma generate --schema services/calendar/prisma/schema.prisma",
+    "services:build": "npm run services:generate && tsc -p tsconfig.services.json && npm run services:copy-prisma",
+    "service:profile:build": "prisma generate --schema services/profile/prisma/schema.prisma && tsc -p services/profile/tsconfig.json && node scripts/copy-service-prisma-client.mjs profile",
+    "service:tasks:build": "prisma generate --schema services/tasks/prisma/schema.prisma && tsc -p services/tasks/tsconfig.json && node scripts/copy-service-prisma-client.mjs tasks",
+    "service:calendar:build": "prisma generate --schema services/calendar/prisma/schema.prisma && tsc -p services/calendar/tsconfig.json && node scripts/copy-service-prisma-client.mjs calendar",
+    "service:dashboard:build": "tsc -p services/dashboard/tsconfig.json",
+    "service:profile:start": "node dist-services/services/profile/src/server.js",
+    "service:tasks:start": "node dist-services/services/tasks/src/server.js",
+    "service:calendar:start": "node dist-services/services/calendar/src/server.js",
+    "service:dashboard:start": "node dist-services/services/dashboard/src/server.js",
+    "services:copy-prisma": "node scripts/copy-service-prisma-client.mjs profile tasks calendar"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",
@@ -43,5 +55,10 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.6"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ]
 }

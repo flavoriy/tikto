@@ -1,0 +1,10 @@
+{
+  "name": "@tikto/dashboard-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ../../dist-services/services/dashboard/src/server.js"
+  },
+  "type": "commonjs"
+}

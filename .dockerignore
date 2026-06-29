@@ -1,7 +1,10 @@
 .git
-.next
+**/.next
+**/node_modules
 coverage
-node_modules
+dist-api
+dist-services
+.codex-run
 out
 
 .env
@@ -10,7 +13,7 @@ out
 .env.production
 .env.development
 
-# Credentials and Keys
+# Credentials and keys
 *.pem
 *.key
 *.pub
@@ -29,10 +32,11 @@ yarn-error.log*
 
 # DevOps and VCS configs
 .github
-Dockerfile
 .gitignore
-.dockerignore
 sonar-project.properties
 
 # Documentation
 *.md
+
+# Generated Prisma clients
+services/*/src/generated/

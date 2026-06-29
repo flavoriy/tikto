@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.services.base.json",
+  "include": [
+    "packages/service-runtime/src/**/*.ts",
+    "packages/shared/src/**/*.ts",
+    "packages/contracts/src/**/*.ts",
+    "services/*/src/**/*.ts"
+  ]
+}

@@ -1,4 +1,8 @@
 {
-  "buildCommand": "npm run build",
-  "regions": ["sin1"]
+  "buildCommand": "npm run web:build",
+  "installCommand": "npm install",
+  "outputDirectory": "apps/web/.next",
+  "regions": [
+    "sin1"
+  ]
 }

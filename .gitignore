@@ -12,17 +12,25 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
 
 # next.js
 /.next/
+/apps/web/.next/
 /out/
+/apps/web/out/
 
 # production
 /build
+/dist-api
 
 # misc
+/.codex-run
 .DS_Store
 *.pem
+*.key
+*.log
 
 # debug
 npm-debug.log*
@@ -37,6 +45,15 @@ yarn-error.log*
 # vercel
 .vercel
 
+# tool caches
+.turbo
+.cache
+.swc
+.vite
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!apps/web/next-env.d.ts
+/dist-services
+/services/*/src/generated/

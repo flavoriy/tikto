@@ -1,5 +1,5 @@
 name: Update GitOps Manifest
-description: Clone a GitOps repo, update an image reference, commit, and push.
+description: Clone a GitOps repo, update image references, commit, and push.
 inputs:
   repo-url:
     required: true
@@ -12,18 +12,24 @@ inputs:
     required: true
     description: Manifest file to update inside the GitOps repo.
   image-ref:
-    required: true
-    description: New image reference.
+    required: false
+    default: ""
+    description: Legacy single new image reference.
   image-repository:
-    required: true
-    description: Image repository prefix to replace.
+    required: false
+    default: ""
+    description: Legacy single image repository prefix to replace.
+  image-replacements:
+    required: false
+    default: ""
+    description: Newline-separated repository=image-ref replacements.
   git-username:
     required: false
     default: x-access-token
     description: Git username for HTTPS token push.
   git-token:
     required: false
-    default: ''
+    default: ""
     description: Token allowed to push to the GitOps repo.
   commit-message:
     required: true
@@ -39,6 +45,7 @@ runs:
         GITOPS_MANIFEST_FILE: ${{ inputs.manifest-file }}
         IMAGE_REF: ${{ inputs.image-ref }}
         IMAGE_REPOSITORY: ${{ inputs.image-repository }}
+        IMAGE_REPLACEMENTS: ${{ inputs.image-replacements }}
         GIT_USERNAME_INPUT: ${{ inputs.git-username }}
         GIT_TOKEN_INPUT: ${{ inputs.git-token }}
         COMMIT_MESSAGE: ${{ inputs.commit-message }}
@@ -63,8 +70,34 @@ runs:
         cd "${workdir}"
 
         test -f "${GITOPS_MANIFEST_FILE}"
-        sed -i "s#image: ${IMAGE_REPOSITORY}.*#image: ${IMAGE_REF}#g" "${GITOPS_MANIFEST_FILE}"
-        grep -n "${IMAGE_REF}" "${GITOPS_MANIFEST_FILE}"
+
+        update_image() {
+          local image_repository="$1"
+          local image_ref="$2"
+          local escaped_repository
+
+          if [ -z "${image_repository}" ] || [ -z "${image_ref}" ]; then
+            echo "::error::Both image repository and image ref are required."
+            exit 1
+          fi
+
+          escaped_repository="$(printf "%s" "${image_repository}" | sed -E "s#[][\.^$*+?(){}|]#\\&#g")"
+          sed -i -E "s#image: ${escaped_repository}(:|@).*#image: ${image_ref}#g" "${GITOPS_MANIFEST_FILE}"
+
+          if ! grep -nF "${image_ref}" "${GITOPS_MANIFEST_FILE}"; then
+            echo "::error::GitOps manifest ${GITOPS_MANIFEST_FILE} does not contain image repository ${image_repository}."
+            exit 1
+          fi
+        }
+
+        if [ -n "${IMAGE_REPLACEMENTS}" ]; then
+          while IFS="=" read -r image_repository image_ref; do
+            [ -z "${image_repository}" ] && continue
+            update_image "${image_repository}" "${image_ref}"
+          done <<< "${IMAGE_REPLACEMENTS}"
+        else
+          update_image "${IMAGE_REPOSITORY}" "${IMAGE_REF}"
+        fi
 
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"

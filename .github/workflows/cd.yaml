@@ -18,8 +18,8 @@ env:
   AWS_SHARED_SECRET_ID: tikto/shared
   AWS_APP_SECRET_PREFIX: tikto
   REGISTRY: ghcr.io
-  IMAGE_REPOSITORY: ghcr.io/flavoriy/tikto
-  DOCKERFILE: Dockerfile
+  IMAGE_REPOSITORY_PREFIX: ghcr.io/flavoriy/tikto
+  IMAGE_TAG: ${{ inputs.deploy-env }}-${{ github.run_number }}-${{ github.sha }}
   DOCKER_BUILD_CONTEXT: .
   GITOPS_REPO_URL: https://github.com/Flavoriy/gitops-manifest.git
   GITOPS_BRANCH: main
@@ -58,39 +58,107 @@ jobs:
           secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
           region: ${{ env.AWS_REGION }}
 
-      - name: Prepare Docker Image
-        id: image
-        uses: ./.github/actions/docker-image-tags
-        with:
-          image-repository: ${{ env.IMAGE_REPOSITORY }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Docker Build
+      - name: Docker Build Images
+        id: images
+        env:
+          DOCKER_BUILDKIT: "1"
         run: |
-          docker build \
-            --build-arg DATABASE_URL \
-            --build-arg NEXT_PUBLIC_APP_URL \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL \
-            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY \
-            -f "${DOCKERFILE}" \
-            -t "${IMAGE_REF}" \
-            "${DOCKER_BUILD_CONTEXT}"
+          set -euo pipefail
 
-      - name: Trivy Image Scan
+          : > image-refs.txt
+          : > image-replacements.txt
+
+          components=(web profile tasks calendar dashboard)
+          for component in "${components[@]}"; do
+            case "${component}" in
+              web) dockerfile="apps/web/Dockerfile" ;;
+              profile) dockerfile="services/profile/Dockerfile" ;;
+              tasks) dockerfile="services/tasks/Dockerfile" ;;
+              calendar) dockerfile="services/calendar/Dockerfile" ;;
+              dashboard) dockerfile="services/dashboard/Dockerfile" ;;
+              *) echo "::error::Unknown component ${component}"; exit 1 ;;
+            esac
+
+            repository="${IMAGE_REPOSITORY_PREFIX}-${component}"
+            image_ref="${repository}:${IMAGE_TAG}"
+            build_args=()
+
+            if [ "${component}" = "web" ]; then
+              build_args+=(
+                --build-arg NEXT_PUBLIC_APP_URL
+                --build-arg NEXT_PUBLIC_SUPABASE_URL
+                --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+                --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY
+              )
+            fi
+
+            docker build "${build_args[@]}" -f "${dockerfile}" -t "${image_ref}" "${DOCKER_BUILD_CONTEXT}"
+            echo "${component}_image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+            printf '%s\n' "${image_ref}" >> image-refs.txt
+            printf '%s=%s\n' "${repository}" "${image_ref}" >> image-replacements.txt
+          done
+
+          {
+            echo "image_refs<<EOF"
+            cat image-refs.txt
+            echo "EOF"
+            echo "image_replacements<<EOF"
+            cat image-replacements.txt
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Trivy Web Image Scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.image-ref }}
+          image-ref: ${{ steps.images.outputs.web_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table
-          exit-code: '1'
+          exit-code: "1"
+
+      - name: Trivy Profile Image Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.profile_image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Trivy Tasks Image Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.tasks_image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Trivy Calendar Image Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.calendar_image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Trivy Dashboard Image Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.dashboard_image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
 
       - name: Docker Push GHCR
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          IMAGE_REFS: ${{ steps.images.outputs.image_refs }}
         run: |
           set -euo pipefail
           set +x
@@ -100,7 +168,9 @@ jobs:
 
           echo "::add-mask::${registry_token}"
           echo "${registry_token}" | docker login "${REGISTRY}" -u "${registry_username}" --password-stdin
-          docker push "${IMAGE_REF}"
+          while IFS= read -r image_ref; do
+            [ -n "${image_ref}" ] && docker push "${image_ref}"
+          done <<< "${IMAGE_REFS}"
           docker logout "${REGISTRY}"
 
       - name: Update GitOps Manifest
@@ -111,12 +181,11 @@ jobs:
           repo-url: ${{ env.GITOPS_REPO_URL }}
           branch: ${{ env.GITOPS_BRANCH }}
           manifest-file: ${{ steps.context.outputs.manifest-file }}
-          image-ref: ${{ steps.image.outputs.image-ref }}
-          image-repository: ${{ env.IMAGE_REPOSITORY }}
-          commit-message: "chore(${{ inputs.deploy-env }}): deploy ${{ steps.image.outputs.image-ref }}"
+          image-replacements: ${{ steps.images.outputs.image_replacements }}
+          commit-message: "chore(${{ inputs.deploy-env }}): deploy TikTo ${{ env.IMAGE_TAG }}"
 
       - name: Verify ArgoCD
         uses: ./.github/actions/verify-argocd
         with:
           app-name: ${{ steps.context.outputs.argocd-app-name }}
-          image-ref: ${{ steps.image.outputs.image-ref }}
+          image-ref: ${{ steps.images.outputs.image_refs }}

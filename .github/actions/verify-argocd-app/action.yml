@@ -70,5 +70,8 @@ runs:
         argocd app wait "${ARGOCD_APP_NAME}" "${args[@]}" --health --sync --timeout "${ARGOCD_TIMEOUT_SECONDS}"
 
         if [ -n "${IMAGE_REF}" ]; then
-          argocd app manifests "${ARGOCD_APP_NAME}" "${args[@]}" | grep -F "${IMAGE_REF}"
+          manifests="$(argocd app manifests "${ARGOCD_APP_NAME}" "${args[@]}")"
+          while IFS= read -r image_ref; do
+            [ -n "${image_ref}" ] && grep -F "${image_ref}" <<< "${manifests}"
+          done <<< "${IMAGE_REF}"
         fi
