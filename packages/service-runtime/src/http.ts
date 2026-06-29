@@ -160,7 +160,7 @@ function shouldLogRequest(pathname: string) {
 function stripTrailingSlashes(value: string) {
   let end = value.length;
 
-  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+  while (end > 0 && value.codePointAt(end - 1) === 47) {
     end -= 1;
   }
 
@@ -181,15 +181,10 @@ function logLevelForStatus(status: number) {
 
 function logRequest(input: {
   serviceName: string;
-  pathname: string;
   status: number;
   durationMs: number;
   errorCode?: string;
 }) {
-  if (!shouldLogRequest(input.pathname)) {
-    return;
-  }
-
   console.log(JSON.stringify({
     level: logLevelForStatus(input.status),
     event: "http_request",
@@ -223,22 +218,24 @@ export function createJsonServiceServer(input: {
       const status = result.status ?? 200;
 
       writeJson(response, status, apiResponse(result));
-      logRequest({
-        serviceName: input.serviceName,
-        pathname,
-        status,
-        durationMs: Date.now() - startedAt,
-      });
+      if (shouldLogRequest(pathname)) {
+        logRequest({
+          serviceName: input.serviceName,
+          status,
+          durationMs: Date.now() - startedAt,
+        });
+      }
     } catch (error) {
       const failure = toApiError(error);
       writeJson(response, failure.status, failure.body);
-      logRequest({
-        serviceName: input.serviceName,
-        pathname,
-        status: failure.status,
-        durationMs: Date.now() - startedAt,
-        errorCode: failure.body.error.code,
-      });
+      if (shouldLogRequest(pathname)) {
+        logRequest({
+          serviceName: input.serviceName,
+          status: failure.status,
+          durationMs: Date.now() - startedAt,
+          errorCode: failure.body.error.code,
+        });
+      }
     }
   });
 
