@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": [
+      "ES2022"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "outDir": "dist-services",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": [
+        "./packages/shared/src/*"
+      ],
+      "@contracts/*": [
+        "./packages/contracts/src/*"
+      ],
+      "@runtime/*": [
+        "./packages/service-runtime/src/*"
+      ],
+      "@prisma/client": [
+        "./node_modules/.prisma/client"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist-services",
+    "apps/web/.next",
+    "services/*/src/generated"
+  ]
+}

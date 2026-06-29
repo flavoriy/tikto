@@ -1,0 +1,11 @@
+{
+  "name": "@tikto/tasks-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate": "prisma generate --schema prisma/schema.prisma",
+    "build": "npm run generate && tsc -p tsconfig.json && node ../../scripts/copy-service-prisma-client.mjs tasks",
+    "start": "node ../../dist-services/services/tasks/src/server.js"
+  },
+  "type": "commonjs"
+}
