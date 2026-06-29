@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "npm --workspace @tikto/web run dev",
     "web:build": "npm --workspace @tikto/web run build",
-    "build": "npm run web:build && npm run services:build",
+    "build": "npm run services:generate && npm run web:build && npm run services:build",
     "start": "npm --workspace @tikto/web run start",
     "lint": "eslint",
     "test": "vitest",
