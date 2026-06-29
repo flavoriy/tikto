@@ -12,7 +12,7 @@ type TaskInput = {
   updatedAt: Date;
 };
 
-type EventInput = {
+export type EventInput = {
   id: string;
   title: string;
   description: string | null;

@@ -7,11 +7,13 @@ import {
   toUtcFromLocal,
   type CalendarView,
 } from "../../../packages/shared/src/dates/tikto-dates";
-import { serializeEvent } from "../../../packages/contracts/src/serializers";
+import { serializeEvent, type EventInput } from "../../../packages/contracts/src/serializers";
 import { eventCreateSchema, eventQuerySchema } from "../../../packages/contracts/src/validations/event";
 import { AppError } from "../../../packages/service-runtime/src/errors";
 import type { RequestContext } from "../../../packages/service-runtime/src/http";
 import type { CalendarRepository } from "./repository";
+
+type DbEvent = EventInput & { deletedAt: Date | null };
 
 function buildEventWritePayload(input: ReturnType<typeof eventCreateSchema.parse>, timezone: string) {
   const color = input.color ?? "teal";
@@ -64,7 +66,7 @@ export function createCalendarDomain(repository: CalendarRepository) {
       },
     ) {
       const filters = eventQuerySchema.parse(query ?? {});
-      const allEvents = await repository.listByUser(context.userId);
+      const allEvents = (await repository.listByUser(context.userId)) as DbEvent[];
 
       if (!filters.from || !filters.to) {
         return sortEvents(allEvents).map(serializeEvent);
@@ -85,7 +87,7 @@ export function createCalendarDomain(repository: CalendarRepository) {
       const view = (input.view === "month" || input.view === "day" ? input.view : "week") as CalendarView;
       const anchorDate = getCalendarAnchorDate(context.timezone, input.date);
       const range = getCalendarRange(anchorDate, view);
-      const allEvents = await repository.listByUser(context.userId);
+      const allEvents = (await repository.listByUser(context.userId)) as DbEvent[];
       const events = sortEvents(
         allEvents.filter((event) => eventIntersectsRange(event, range.start, range.end, context.timezone)),
       );
