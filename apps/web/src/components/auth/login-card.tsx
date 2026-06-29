@@ -204,10 +204,11 @@ export function LoginCard({
 
             <form onSubmit={handleEmailAuth} className="mt-5 space-y-4">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold tracking-wider text-muted uppercase">Email Address</label>
+                <label htmlFor="email" className="text-[11px] font-semibold tracking-wider text-muted uppercase">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute top-3.5 left-3 size-4 text-muted" />
                   <Input
+                    id="email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
@@ -220,10 +221,11 @@ export function LoginCard({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold tracking-wider text-muted uppercase">Password</label>
+                <label htmlFor="password" className="text-[11px] font-semibold tracking-wider text-muted uppercase">Password</label>
                 <div className="relative">
                   <Lock className="absolute top-3.5 left-3 size-4 text-muted" />
                   <Input
+                    id="password"
                     type="password"
                     placeholder="Password"
                     value={password}

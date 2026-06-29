@@ -18,7 +18,7 @@ export type RequestContext = {
   avatarUrl?: string;
 };
 
-type ServiceRoute = (input: {
+export type ServiceRoute = (input: {
   request: IncomingMessage;
   requestId: string;
   url: URL;
@@ -150,11 +150,30 @@ function shouldLogRequest(pathname: string) {
   return pathname !== "/health" || process.env.LOG_HEALTHCHECKS === "true";
 }
 
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
+
+function logLevelForStatus(status: number) {
+  if (status >= 500) {
+    return "error";
+  }
+
+  if (status >= 400) {
+    return "warn";
+  }
+
+  return "info";
+}
+
 function logRequest(input: {
   serviceName: string;
-  request: IncomingMessage;
-  requestId: string;
-  method: string;
   pathname: string;
   status: number;
   durationMs: number;
@@ -164,20 +183,12 @@ function logRequest(input: {
     return;
   }
 
-  const userId = headerValue(input.request, "x-tikto-user-id");
-  const traceparent = headerValue(input.request, "traceparent");
-
   console.log(JSON.stringify({
-    level: input.status >= 500 ? "error" : input.status >= 400 ? "warn" : "info",
+    level: logLevelForStatus(input.status),
     event: "http_request",
     service: input.serviceName,
-    requestId: input.requestId,
-    traceparent: traceparent ?? null,
-    method: input.method,
-    path: input.pathname,
     status: input.status,
     durationMs: input.durationMs,
-    hasUserContext: Boolean(userId),
     errorCode: input.errorCode ?? null,
     timestamp: new Date().toISOString(),
   }));
@@ -198,8 +209,8 @@ export function createJsonServiceServer(input: {
     response.setHeader("x-request-id", requestId);
 
     try {
-      const url = new URL(request.url ?? "/", "http://" + input.serviceName + ".local");
-      pathname = url.pathname.replace(/\/+$/, "") || "/";
+      const url = new URL(request.url ?? "/", "https://" + input.serviceName + ".local");
+      pathname = stripTrailingSlashes(url.pathname) || "/";
       const segments = pathname.split("/").filter(Boolean);
       const result = await input.route({ request, requestId, url, pathname, segments, method });
       const status = result.status ?? 200;
@@ -207,9 +218,6 @@ export function createJsonServiceServer(input: {
       writeJson(response, status, apiResponse(result));
       logRequest({
         serviceName: input.serviceName,
-        request,
-        requestId,
-        method,
         pathname,
         status,
         durationMs: Date.now() - startedAt,
@@ -219,9 +227,6 @@ export function createJsonServiceServer(input: {
       writeJson(response, failure.status, failure.body);
       logRequest({
         serviceName: input.serviceName,
-        request,
-        requestId,
-        method,
         pathname,
         status: failure.status,
         durationMs: Date.now() - startedAt,
@@ -238,7 +243,8 @@ export function createJsonServiceServer(input: {
       level: "info",
       event: "service_listening",
       service: input.serviceName,
-      url: "http://" + hostname + ":" + port,
+      hostname,
+      port,
       timestamp: new Date().toISOString(),
     }));
   });

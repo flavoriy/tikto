@@ -1,6 +1,6 @@
 import { getSupabaseConfig } from "../../shared/src/supabase/env";
 
-type HealthDatabaseClient = {
+export type HealthDatabaseClient = {
   $queryRaw: <T = unknown>(query: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
   $queryRawUnsafe: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
 };
@@ -48,7 +48,49 @@ function envStatus(names: readonly string[]) {
 }
 
 function trimBase64Padding(str: string): string {
-  return str.endsWith("==") ? str.slice(0, -2) : str.endsWith("=") ? str.slice(0, -1) : str;
+  if (str.endsWith("==")) {
+    return str.slice(0, -2);
+  }
+
+  if (str.endsWith("=")) {
+    return str.slice(0, -1);
+  }
+
+  return str;
+}
+
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
+
+function getDatabaseHostKind(host: string) {
+  if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
+    return "supabase-direct";
+  }
+
+  if (host.endsWith(".pooler.supabase.com")) {
+    return "supabase-pooler";
+  }
+
+  return "custom";
+}
+
+function getSupabaseKeySource() {
+  if (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY";
+  }
+
+  if (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return "NEXT_PUBLIC_SUPABASE_ANON_KEY";
+  }
+
+  return null;
 }
 
 function encryptionKeyStatus() {
@@ -85,17 +127,15 @@ function databaseUrlStatus(databaseEnv = "DATABASE_URL") {
 
   try {
     const url = new URL(raw);
-    const host = url.hostname;
-    const isDirectSupabaseHost = host.startsWith("db.") && host.endsWith(".supabase.co");
-    const isSupabasePooler = host.endsWith(".pooler.supabase.com");
+    const hostKind = getDatabaseHostKind(url.hostname);
 
     return {
       configured: true,
       source: process.env[databaseEnv] ? databaseEnv : "DATABASE_URL",
       validUrl: true,
-      hostKind: isDirectSupabaseHost ? "supabase-direct" : isSupabasePooler ? "supabase-pooler" : "custom",
+      hostKind,
       port: url.port || null,
-      recommendation: isDirectSupabaseHost
+      recommendation: hostKind === "supabase-direct"
         ? "Hosted runtimes may not reach Supabase direct database hosts because they require IPv6. Use the Supabase Connection Pooler/Supavisor DATABASE_URL instead."
         : null,
     };
@@ -196,7 +236,7 @@ async function checkDependency(target: DependencyTarget) {
   }
 
   try {
-    const response = await fetch(`${url.replace(/\/+$/, "")}/health`, {
+    const response = await fetch(`${stripTrailingSlashes(url)}/health`, {
       headers,
     });
     const body = await response.json().catch(() => null) as DependencyHealthBody | null;
@@ -253,11 +293,7 @@ export async function getServiceHealth(input: ServiceHealthInput) {
     env,
     supabase: {
       publicKeyConfigured: Boolean(supabase.publishableKey),
-      keySource: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-        ? "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
-        : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-          ? "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-          : null,
+      keySource: getSupabaseKeySource(),
     },
     providers,
     encryption,
@@ -266,5 +302,3 @@ export async function getServiceHealth(input: ServiceHealthInput) {
     dependencies,
   };
 }
-
-

@@ -100,7 +100,7 @@ export function getTiktoServiceBaseUrl(service: TiktoServiceName) {
     );
   }
 
-  return raw.replace(/\/+$/, "");
+  return stripTrailingSlashes(raw);
 }
 
 export function getTiktoApiBaseUrl(path = "/") {
@@ -190,4 +190,13 @@ export async function readTiktoApiData<T>(response: Response): Promise<T> {
   }
 
   return body.data;
+}
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
 }

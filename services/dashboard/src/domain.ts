@@ -64,9 +64,19 @@ function getRequiredServiceBaseUrl(envName: string) {
     throw new AppError(500, "SERVICE_NOT_CONFIGURED", `${envName} is not configured.`);
   }
 
-  return value.replace(/\/+$/, "");
+  return stripTrailingSlashes(value);
 }
 
+
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
 function authenticatedHeaders(context: RequestContext) {
   const headers = new Headers();
   headers.set("x-tikto-user-id", context.userId);
