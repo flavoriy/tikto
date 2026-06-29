@@ -63,7 +63,7 @@ export function requireInternalRequest(request: IncomingMessage) {
   const configuredKey = process.env.TIKTO_INTERNAL_API_KEY;
 
   if (!configuredKey) {
-    return;
+    throw new AppError(500, "INTERNAL_SERVER_ERROR", "Internal API key is not configured.");
   }
 
   const presentedKey = headerValue(request, "x-tikto-internal-key");

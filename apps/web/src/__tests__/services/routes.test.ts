@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "node:http";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppError } from "../../../../../packages/service-runtime/src/errors";
 import type { ServiceRoute } from "../../../../../packages/service-runtime/src/http";
@@ -14,6 +14,7 @@ function request(body?: unknown) {
     headers: {
       "x-tikto-user-id": "user-1",
       "x-tikto-user-timezone": "UTC",
+      "x-tikto-internal-key": "test-secret",
     },
     async *[Symbol.asyncIterator]() {
       for (const chunk of chunks) {
@@ -47,6 +48,10 @@ function healthyPrisma() {
     $queryRawUnsafe: vi.fn().mockResolvedValue([{ exists: "public.table" }]),
   };
 }
+
+beforeEach(() => {
+  process.env.TIKTO_INTERNAL_API_KEY = "test-secret";
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
