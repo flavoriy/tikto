@@ -2,7 +2,6 @@ import { getServiceHealth } from "../../../packages/service-runtime/src/health";
 import {
   createJsonServiceServer,
   headerValue,
-  methodNotAllowed,
   notFound,
   ok,
   readJson,

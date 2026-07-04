@@ -120,36 +120,74 @@ describe("profile domain", () => {
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it("updates profile settings and reminder defaults", async () => {
+  it("returns existing profile when present", async () => {
+    const existingProfile = {
+      id: context.userId,
+      email: "existing@example.com",
+      name: "Existing Person",
+      avatarUrl: "https://example.test/pic.png",
+      timezone: "Asia/Ho_Chi_Minh",
+      defaultTaskReminderOffsetsMinutes: [10],
+      defaultEventReminderOffsetsMinutes: [20],
+      createdAt: now,
+      updatedAt: now,
+    };
     const repository = {
-      findById: vi.fn(),
+      findById: vi.fn().mockResolvedValue(existingProfile),
       create: vi.fn(),
-      update: vi.fn(async (_id, data) => ({
-        id: context.userId,
-        email: context.email,
-        avatarUrl: null,
+      update: vi.fn(),
+    };
+    const domain = createProfileDomain(repository as never);
+
+    await expect(domain.getOrCreateProfile(context)).resolves.toMatchObject({
+      id: context.userId,
+      name: "Existing Person",
+      defaultTaskReminderOffsetsMinutes: [10],
+    });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("handles fallback name parsing from email and null name update", async () => {
+    const repository = {
+      findById: vi.fn().mockResolvedValue(null),
+      create: vi.fn(async (data) => ({
+        ...data,
+        defaultTaskReminderOffsetsMinutes: [],
+        defaultEventReminderOffsetsMinutes: [],
         createdAt: now,
         updatedAt: now,
-        defaultTaskReminderOffsetsMinutes: data.defaultTaskReminderOffsetsMinutes ?? [],
-        defaultEventReminderOffsetsMinutes: data.defaultEventReminderOffsetsMinutes ?? [],
-        ...data,
+      })),
+      update: vi.fn(async (_id, data) => ({
+        id: "u-2",
+        email: "alice@domain.com",
+        name: data.name ?? null,
+        avatarUrl: null,
+        timezone: data.timezone,
+        defaultTaskReminderOffsetsMinutes: [],
+        defaultEventReminderOffsetsMinutes: [],
+        createdAt: now,
+        updatedAt: now,
       })),
     };
     const domain = createProfileDomain(repository as never);
 
-    const profile = await domain.updateProfile(context, {
-      name: "Updated",
-      timezone: "Asia/Saigon",
-      defaultTaskReminderOffsetsMinutes: [5, 30],
-      defaultEventReminderOffsetsMinutes: [15],
+    const created = await domain.getOrCreateProfile({
+      userId: "u-2",
+      timezone: "UTC",
+      email: "alice@domain.com",
     });
+    expect(created).toMatchObject({ name: "alice" });
 
-    expect(profile).toMatchObject({
-      name: "Updated",
-      timezone: "Asia/Saigon",
-      defaultTaskReminderOffsetsMinutes: [5, 30],
-      defaultEventReminderOffsetsMinutes: [15],
+    const createdAnonymous = await domain.getOrCreateProfile({
+      userId: "u-3",
+      timezone: "UTC",
     });
+    expect(createdAnonymous).toMatchObject({ name: "User" });
+
+    const updated = await domain.updateProfile(context, {
+      timezone: "UTC",
+    });
+    expect(updated).toMatchObject({ name: null });
   });
 
   it("delegates to prisma client in profile repository", async () => {
