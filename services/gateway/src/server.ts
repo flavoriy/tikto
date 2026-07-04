@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import { getServiceHealth } from "../../../packages/service-runtime/src/health";
 import {
   createJsonServiceServer,
@@ -31,8 +32,8 @@ type ServiceTarget = keyof typeof serviceRoutes;
 
 function resolveTargetUrl(target: ServiceTarget): string {
   const config = serviceRoutes[target];
-  const url = process.env[config.env] || config.defaultUrl;
-  return url.replace(/\/+$/, "");
+  const rawUrl = process.env[config.env] || config.defaultUrl;
+  return rawUrl.endsWith("/") ? rawUrl.slice(0, -1) : rawUrl;
 }
 
 function resolveTargetForPath(pathname: string): { target: ServiceTarget; targetPath: string } | null {
@@ -62,6 +63,18 @@ function resolveTargetForPath(pathname: string): { target: ServiceTarget; target
   return null;
 }
 
+function buildDestinationUrl(baseUrlString: string, targetPath: string, search: string): string {
+  const sanitizedPath = targetPath.replace(/[^a-zA-Z0-9/_-]/g, "");
+  const destination = new URL(sanitizedPath + search, baseUrlString);
+  const expectedHost = new URL(baseUrlString).host;
+
+  if (destination.host !== expectedHost) {
+    throw new AppError(400, "INVALID_PATH", "Destination host mismatch.");
+  }
+
+  return destination.toString();
+}
+
 // Memory Sliding Window Rate Limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const MAX_REQUESTS_PER_MINUTE = 120;
@@ -83,92 +96,113 @@ function checkRateLimit(clientIp: string): boolean {
   return true;
 }
 
+async function handleHealthCheck() {
+  const health = await getServiceHealth({
+    serviceName: "tikto-gateway",
+    dependencies: [
+      { service: "profile", env: "TIKTO_PROFILE_API_URL" },
+      { service: "tasks", env: "TIKTO_TASKS_API_URL" },
+      { service: "calendar", env: "TIKTO_CALENDAR_API_URL" },
+      { service: "dashboard", env: "TIKTO_DASHBOARD_API_URL" },
+    ],
+  });
+  return ok({ ...health, gateway: "active", rateLimitMax: MAX_REQUESTS_PER_MINUTE }, health.ok ? 200 : 503);
+}
+
+function buildPassThroughHeaders(request: IncomingMessage, requestId: string): Headers {
+  const headers = new Headers();
+  headers.set("x-request-id", requestId);
+
+  const contextHeaders = [
+    "x-tikto-user-id",
+    "x-tikto-user-timezone",
+    "x-tikto-user-email",
+    "x-tikto-user-name",
+    "x-tikto-user-avatar-url",
+  ];
+
+  for (const headerName of contextHeaders) {
+    const val = headerValue(request, headerName);
+    if (val) {
+      headers.set(headerName, val);
+    }
+  }
+
+  const internalKey = process.env.TIKTO_INTERNAL_API_KEY;
+  if (internalKey) {
+    headers.set("x-tikto-internal-key", internalKey);
+  }
+
+  return headers;
+}
+
+type UpstreamEnvelope = {
+  success?: boolean;
+  data?: unknown;
+  error?: { code: string; message: string };
+};
+
+async function proxyMicroserviceRequest(
+  target: ServiceTarget,
+  destinationUrl: string,
+  method: string,
+  headers: Headers,
+  request: IncomingMessage,
+) {
+  try {
+    const bodyData = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
+    if (bodyData !== undefined) {
+      headers.set("content-type", "application/json");
+    }
+
+    const upstreamResponse = await fetch(destinationUrl, {
+      method,
+      headers,
+      body: bodyData !== undefined ? JSON.stringify(bodyData) : undefined,
+    });
+
+    const jsonPayload = (await upstreamResponse.json().catch(() => null)) as UpstreamEnvelope | null;
+    const isSuccessful = upstreamResponse.ok && Boolean(jsonPayload?.success);
+
+    if (isSuccessful && jsonPayload) {
+      return ok(jsonPayload.data, upstreamResponse.status);
+    }
+
+    const errorCode = jsonPayload?.error?.code ?? "UPSTREAM_ERROR";
+    const errorMessage = jsonPayload?.error?.message ?? `${target} service request failed.`;
+    throw new AppError(upstreamResponse.status, errorCode, errorMessage);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : "Unknown gateway proxy error";
+    throw new AppError(502, "BAD_GATEWAY", `API Gateway failed to proxy request to ${target}-service: ${message}`);
+  }
+}
+
 createJsonServiceServer({
   serviceName: "tikto-gateway",
   defaultPort: 4000,
   async route({ request, requestId, pathname, method, url }) {
-    // 1. Gateway Health Aggregation Endpoint
     if (method === "GET" && pathname === "/health") {
-      const health = await getServiceHealth({
-        serviceName: "tikto-gateway",
-        dependencies: [
-          { service: "profile", env: "TIKTO_PROFILE_API_URL" },
-          { service: "tasks", env: "TIKTO_TASKS_API_URL" },
-          { service: "calendar", env: "TIKTO_CALENDAR_API_URL" },
-          { service: "dashboard", env: "TIKTO_DASHBOARD_API_URL" },
-        ],
-      });
-      return ok({ ...health, gateway: "active", rateLimitMax: MAX_REQUESTS_PER_MINUTE }, health.ok ? 200 : 503);
+      return handleHealthCheck();
     }
 
-    // 2. Client Rate Limiter
     const clientIp = headerValue(request, "x-forwarded-for") || "127.0.0.1";
     if (!checkRateLimit(clientIp)) {
       throw new AppError(429, "TOO_MANY_REQUESTS", "API Gateway rate limit exceeded.");
     }
 
-    // 3. Resolve Microservice Target
     const routeMatch = resolveTargetForPath(pathname);
     if (!routeMatch) {
       notFound();
     }
 
     const { target, targetPath } = routeMatch;
-    const baseUrl = resolveTargetUrl(target);
-    const destinationUrl = `${baseUrl}${targetPath}${url.search}`;
+    const baseUrlString = resolveTargetUrl(target);
+    const destinationUrl = buildDestinationUrl(baseUrlString, targetPath, url.search);
+    const headers = buildPassThroughHeaders(request, requestId);
 
-    // 4. Pass-through Headers
-    const headers = new Headers();
-    headers.set("x-request-id", requestId);
-
-    const userId = headerValue(request, "x-tikto-user-id");
-    if (userId) headers.set("x-tikto-user-id", userId);
-
-    const timezone = headerValue(request, "x-tikto-user-timezone");
-    if (timezone) headers.set("x-tikto-user-timezone", timezone);
-
-    const email = headerValue(request, "x-tikto-user-email");
-    if (email) headers.set("x-tikto-user-email", email);
-
-    const name = headerValue(request, "x-tikto-user-name");
-    if (name) headers.set("x-tikto-user-name", name);
-
-    const avatarUrl = headerValue(request, "x-tikto-user-avatar-url");
-    if (avatarUrl) headers.set("x-tikto-user-avatar-url", avatarUrl);
-
-    const internalKey = process.env.TIKTO_INTERNAL_API_KEY;
-    if (internalKey) {
-      headers.set("x-tikto-internal-key", internalKey);
-    }
-
-    // 5. Proxy Call to Microservice
-    try {
-      const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
-      if (body !== undefined) {
-        headers.set("content-type", "application/json");
-      }
-
-      const upstreamResponse = await fetch(destinationUrl, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
-
-      const jsonPayload = await upstreamResponse.json().catch(() => null) as { success?: boolean; data?: unknown; error?: { code: string; message: string } } | null;
-
-      if (!upstreamResponse.ok || !jsonPayload?.success) {
-        const errorCode = jsonPayload && "error" in jsonPayload && jsonPayload.error ? jsonPayload.error.code : "UPSTREAM_ERROR";
-        const errorMessage = jsonPayload && "error" in jsonPayload && jsonPayload.error ? jsonPayload.error.message : `${target} service request failed.`;
-        throw new AppError(upstreamResponse.status, errorCode, errorMessage);
-      }
-
-      return ok(jsonPayload.data, upstreamResponse.status);
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      const message = error instanceof Error ? error.message : "Unknown gateway proxy error";
-      throw new AppError(502, "BAD_GATEWAY", `API Gateway failed to proxy request to ${target}-service: ${message}`);
-    }
+    return proxyMicroserviceRequest(target, destinationUrl, method, headers, request);
   },
 });
