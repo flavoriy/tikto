@@ -122,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${GITHUB_ACTOR}" --password-stdin
-          docker push "${IMAGE_REPOSITORY_PREFIX}-${matrix.component}:${IMAGE_TAG}"
+          docker push "${IMAGE_REPOSITORY_PREFIX}-${{ matrix.component }}:${IMAGE_TAG}"
 
   deploy-gitops:
     name: Update GitOps & Verify ArgoCD
