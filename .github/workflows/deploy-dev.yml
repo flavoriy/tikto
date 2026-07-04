@@ -33,7 +33,6 @@ jobs:
     with:
       deploy-env: dev
       environment-name: dev
-      use-cache: true
     secrets: inherit
     permissions:
       contents: read
