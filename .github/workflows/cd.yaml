@@ -12,6 +12,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
 env:
   AWS_REGION: ap-southeast-1
   AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -29,6 +34,10 @@ jobs:
     name: Build, Scan & Push (${{ matrix.component }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     strategy:
       fail-fast: true
       matrix:
@@ -129,6 +138,10 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name }}
+    permissions:
+      contents: write
+      packages: read
+      id-token: write
 
     steps:
       - name: Checkout
