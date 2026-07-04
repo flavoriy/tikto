@@ -11,6 +11,7 @@ COPY services/profile/package.json ./services/profile/package.json
 COPY services/tasks/package.json ./services/tasks/package.json
 COPY services/calendar/package.json ./services/calendar/package.json
 COPY services/dashboard/package.json ./services/dashboard/package.json
+COPY services/gateway/package.json ./services/gateway/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/service-runtime/package.json ./packages/service-runtime/package.json
@@ -20,6 +21,7 @@ FROM deps AS builder
 COPY packages ./packages
 COPY services/dashboard ./services/dashboard
 COPY tsconfig.services.json tsconfig.services.base.json ./
+COPY tooling ./tooling
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tikto
 RUN npm run service:dashboard:build
 RUN npm prune --omit=dev --ignore-scripts && npm cache clean --force
