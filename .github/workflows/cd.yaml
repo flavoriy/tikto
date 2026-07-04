@@ -11,6 +11,11 @@ on:
         description: GitHub Environment name used for deployment protection.
         required: true
         type: string
+      use-cache:
+        description: Enable Docker build cache (true for dev, false for prod clean build).
+        required: false
+        type: boolean
+        default: true
 
 env:
   AWS_REGION: ap-southeast-1
@@ -72,6 +77,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: "1"
           RESOLVED_IMAGE_TAG: ${{ steps.image-tag-resolver.outputs.image-tag }}
+          USE_CACHE: ${{ inputs.use-cache }}
         run: |
           set -euo pipefail
 
@@ -103,7 +109,18 @@ jobs:
               )
             fi
 
-            docker build "${build_args[@]}" -f "${dockerfile}" -t "${image_ref}" "${DOCKER_BUILD_CONTEXT}"
+            if [ "${USE_CACHE}" = "false" ]; then
+              echo "::notice::Prod environment: Building ${component} WITHOUT cache (--no-cache)..."
+              build_args+=(--no-cache)
+            else
+              echo "::notice::Dev environment: Building ${component} WITH GHA cache..."
+              build_args+=(
+                --cache-from "type=gha,scope=${component}"
+                --cache-to "type=gha,mode=max,scope=${component}"
+              )
+            fi
+
+            docker buildx build "${build_args[@]}" -f "${dockerfile}" -t "${image_ref}" --load "${DOCKER_BUILD_CONTEXT}"
             echo "${component}_image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
             printf '%s\n' "${image_ref}" >> image-refs.txt
             printf '%s=%s\n' "${repository}" "${image_ref}" >> image-replacements.txt
