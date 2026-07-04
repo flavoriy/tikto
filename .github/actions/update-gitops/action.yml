@@ -81,7 +81,7 @@ runs:
             exit 1
           fi
 
-          escaped_repository="$(printf "%s" "${image_repository}" | sed -E "s#[][\.^$*+?(){}|]#\\&#g")"
+          escaped_repository="$(printf "%s" "${image_repository}" | sed 's/[.]/\\./g')"
           sed -i -E "s#image: ${escaped_repository}(:|@).*#image: ${image_ref}#g" "${GITOPS_MANIFEST_FILE}"
 
           if ! grep -nF "${image_ref}" "${GITOPS_MANIFEST_FILE}"; then
