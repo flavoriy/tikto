@@ -58,6 +58,9 @@
     "typescript": "^5",
     "vitest": "^4.1.6"
   },
+  "overrides": {
+    "sigstore": "^4.1.1"
+  },
   "workspaces": [
     "apps/*",
     "services/*",
