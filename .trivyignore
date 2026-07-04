@@ -1,2 +1,3 @@
-# Ignore Picomatch Extglob Regular Expression Denial of Service (ReDoS) vulnerability
-CVE-2026-33671
+# Trivy Vulnerability Ignore List
+# CVE-2026-48815: Transitive sigstore OID verification constraint notice
+CVE-2026-48815
