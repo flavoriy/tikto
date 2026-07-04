@@ -1,4 +1,4 @@
-name: TikTo Reusable CI
+name: TikTo CI
 
 on:
   workflow_call:
