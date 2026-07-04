@@ -5,6 +5,7 @@ import type { RequestContext } from "../../../../../packages/service-runtime/src
 import { createCalendarDomain } from "../../../../../services/calendar/src/domain";
 import { createDashboardDomain } from "../../../../../services/dashboard/src/domain";
 import { createProfileDomain } from "../../../../../services/profile/src/domain";
+import { createProfileRepository } from "../../../../../services/profile/src/repository";
 import { createTasksDomain } from "../../../../../services/tasks/src/domain";
 
 const context: RequestContext = {
@@ -149,6 +150,24 @@ describe("profile domain", () => {
       defaultTaskReminderOffsetsMinutes: [5, 30],
       defaultEventReminderOffsetsMinutes: [15],
     });
+  });
+
+  it("delegates to prisma client in profile repository", async () => {
+    const prisma = {
+      profile: {
+        findUnique: vi.fn().mockResolvedValue({ id: "user-1" }),
+        create: vi.fn().mockResolvedValue({ id: "user-1" }),
+        update: vi.fn().mockResolvedValue({ id: "user-1" }),
+      },
+    };
+    const repo = createProfileRepository(prisma as never);
+    await repo.findById("user-1");
+    await repo.create({ id: "user-1", email: "test@example.com", timezone: "UTC" });
+    await repo.update("user-1", { name: "New" });
+
+    expect(prisma.profile.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" } });
+    expect(prisma.profile.create).toHaveBeenCalledWith({ data: { id: "user-1", email: "test@example.com", timezone: "UTC" } });
+    expect(prisma.profile.update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { name: "New" } });
   });
 });
 
