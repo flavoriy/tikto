@@ -48,14 +48,13 @@ runs:
         IMAGE_REPLACEMENTS: ${{ inputs.image-replacements }}
         GIT_USERNAME_INPUT: ${{ inputs.git-username }}
         GIT_TOKEN_INPUT: ${{ inputs.git-token }}
-        GITOPS_TOKEN_SECRET: ${{ secrets.GITOPS_TOKEN }}
         COMMIT_MESSAGE: ${{ inputs.commit-message }}
       run: |
         set -euo pipefail
         set +x
 
         git_username="${GIT_USERNAME_INPUT:-${GITOPS_USERNAME:-x-access-token}}"
-        git_token="${GIT_TOKEN_INPUT:-${GITOPS_TOKEN_SECRET:-${GITOPS_TOKEN:-${GITHUB_TOKEN:-}}}}"
+        git_token="${GIT_TOKEN_INPUT:-${GITOPS_TOKEN:-${GITHUB_TOKEN:-}}}"
 
         if [ -z "${git_token}" ]; then
           echo "::error::GITOPS_TOKEN is required to update the GitOps repo."
