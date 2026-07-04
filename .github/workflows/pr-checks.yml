@@ -10,7 +10,6 @@ on:
       - '.gitignore'
       - '.dockerignore'
       - 'supabase/**'
-      - 'gitops-manifest/**'
 
 permissions:
   contents: read

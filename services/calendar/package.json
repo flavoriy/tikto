@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "generate": "prisma generate --schema prisma/schema.prisma",
-    "build": "npm run generate && tsc -p tsconfig.json && node ../../scripts/copy-service-prisma-client.mjs calendar",
+    "build": "npm run generate && tsc -p tsconfig.json && node ../../tooling/scripts/copy-service-prisma-client.mjs calendar",
     "start": "node ../../dist-services/services/calendar/src/server.js"
   },
   "type": "commonjs"

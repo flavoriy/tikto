@@ -58,6 +58,12 @@ jobs:
           secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
           region: ${{ env.AWS_REGION }}
 
+      - name: Resolve Docker Image Tags
+        id: image-tag-resolver
+        uses: ./.github/actions/docker-image-tags
+        with:
+          image-repository: ${{ env.IMAGE_REPOSITORY_PREFIX }}-web
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -65,13 +71,14 @@ jobs:
         id: images
         env:
           DOCKER_BUILDKIT: "1"
+          RESOLVED_IMAGE_TAG: ${{ steps.image-tag-resolver.outputs.image-tag }}
         run: |
           set -euo pipefail
 
           : > image-refs.txt
           : > image-replacements.txt
 
-          components=(web profile tasks calendar dashboard)
+          components=(web profile tasks calendar dashboard gateway)
           for component in "${components[@]}"; do
             case "${component}" in
               web) dockerfile="apps/web/Dockerfile" ;;
@@ -79,11 +86,12 @@ jobs:
               tasks) dockerfile="services/tasks/Dockerfile" ;;
               calendar) dockerfile="services/calendar/Dockerfile" ;;
               dashboard) dockerfile="services/dashboard/Dockerfile" ;;
+              gateway) dockerfile="services/gateway/Dockerfile" ;;
               *) echo "::error::Unknown component ${component}"; exit 1 ;;
             esac
 
             repository="${IMAGE_REPOSITORY_PREFIX}-${component}"
-            image_ref="${repository}:${IMAGE_TAG}"
+            image_ref="${repository}:${RESOLVED_IMAGE_TAG}"
             build_args=()
 
             if [ "${component}" = "web" ]; then
@@ -150,6 +158,15 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.images.outputs.dashboard_image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Trivy Gateway Image Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.gateway_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table

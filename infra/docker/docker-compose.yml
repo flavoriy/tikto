@@ -2,7 +2,7 @@ services:
   tikto-web:
     image: tikto-web:${TIKTO_IMAGE_TAG:-local}
     build:
-      context: .
+      context: ../..
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
@@ -39,14 +39,13 @@ services:
   tikto-profile:
     image: tikto-profile:${TIKTO_IMAGE_TAG:-local}
     build:
-      context: .
+      context: ../..
       dockerfile: services/profile/Dockerfile
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 4100
       PROFILE_DATABASE_URL: ${PROFILE_DATABASE_URL:-}
-      DATABASE_URL: ${DATABASE_URL}
       TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
     expose:
       - "4100"
@@ -63,14 +62,13 @@ services:
   tikto-tasks:
     image: tikto-tasks:${TIKTO_IMAGE_TAG:-local}
     build:
-      context: .
+      context: ../..
       dockerfile: services/tasks/Dockerfile
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 4200
       TASKS_DATABASE_URL: ${TASKS_DATABASE_URL:-}
-      DATABASE_URL: ${DATABASE_URL}
       TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
     expose:
       - "4200"
@@ -87,14 +85,13 @@ services:
   tikto-calendar:
     image: tikto-calendar:${TIKTO_IMAGE_TAG:-local}
     build:
-      context: .
+      context: ../..
       dockerfile: services/calendar/Dockerfile
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 4300
       CALENDAR_DATABASE_URL: ${CALENDAR_DATABASE_URL:-}
-      DATABASE_URL: ${DATABASE_URL}
       TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
     expose:
       - "4300"
@@ -111,7 +108,7 @@ services:
   tikto-dashboard:
     image: tikto-dashboard:${TIKTO_IMAGE_TAG:-local}
     build:
-      context: .
+      context: ../..
       dockerfile: services/dashboard/Dockerfile
     environment:
       NODE_ENV: production

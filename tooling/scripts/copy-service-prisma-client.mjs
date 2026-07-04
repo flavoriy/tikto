@@ -6,7 +6,10 @@ const serviceNames = new Set(["profile", "tasks", "calendar"]);
 const requested = process.argv.slice(2);
 const selected = requested.length ? requested : [...serviceNames];
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(scriptDir, "..");
+// If in tooling/scripts, root is 2 levels up; if in scripts, root is 1 level up
+const root = fs.existsSync(path.join(scriptDir, "..", "services"))
+  ? path.resolve(scriptDir, "..")
+  : path.resolve(scriptDir, "..", "..");
 
 for (const service of selected) {
   if (!serviceNames.has(service)) {
