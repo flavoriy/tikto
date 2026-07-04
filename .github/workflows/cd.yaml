@@ -139,13 +139,12 @@ jobs:
         uses: ./.github/actions/build-context
 
       - name: Update GitOps Manifest
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         uses: ./.github/actions/update-gitops
         with:
           repo-url: ${{ env.GITOPS_REPO_URL }}
           branch: ${{ env.GITOPS_BRANCH }}
           manifest-file: ${{ steps.context.outputs.manifest-file }}
+          git-token: ${{ secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
           image-replacements: |
             ${{ env.IMAGE_REPOSITORY_PREFIX }}-web=${{ env.IMAGE_REPOSITORY_PREFIX }}-web:${{ env.IMAGE_TAG }}
             ${{ env.IMAGE_REPOSITORY_PREFIX }}-profile=${{ env.IMAGE_REPOSITORY_PREFIX }}-profile:${{ env.IMAGE_TAG }}
