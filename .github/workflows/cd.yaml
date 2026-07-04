@@ -124,6 +124,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.web_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -133,6 +134,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.profile_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -142,6 +144,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.tasks_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -151,6 +154,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.calendar_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -160,6 +164,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.dashboard_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -169,6 +174,7 @@ jobs:
           image-ref: ${{ steps.images.outputs.gateway_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
