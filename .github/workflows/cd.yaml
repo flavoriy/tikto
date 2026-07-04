@@ -1,21 +1,16 @@
-name: TikTo Reusable Deploy
+name: TikTo Deploy
 
 on:
   workflow_call:
     inputs:
       deploy-env:
-        description: Target deploy environment, for example dev or prod.
+        description: Target deploy environment.
         required: true
         type: string
       environment-name:
-        description: GitHub Environment name used for deployment protection.
+        description: Environment deploy.
         required: true
         type: string
-      use-cache:
-        description: Enable Docker build cache (true for dev, false for prod clean build).
-        required: false
-        type: boolean
-        default: true
 
 env:
   AWS_REGION: ap-southeast-1
@@ -63,12 +58,6 @@ jobs:
           secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
           region: ${{ env.AWS_REGION }}
 
-      - name: Resolve Docker Image Tags
-        id: image-tag-resolver
-        uses: ./.github/actions/docker-image-tags
-        with:
-          image-repository: ${{ env.IMAGE_REPOSITORY_PREFIX }}-web
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -76,15 +65,13 @@ jobs:
         id: images
         env:
           DOCKER_BUILDKIT: "1"
-          RESOLVED_IMAGE_TAG: ${{ steps.image-tag-resolver.outputs.image-tag }}
-          USE_CACHE: ${{ inputs.use-cache }}
         run: |
           set -euo pipefail
 
           : > image-refs.txt
           : > image-replacements.txt
 
-          components=(web profile tasks calendar dashboard gateway)
+          components=(web profile tasks calendar dashboard)
           for component in "${components[@]}"; do
             case "${component}" in
               web) dockerfile="apps/web/Dockerfile" ;;
@@ -92,12 +79,11 @@ jobs:
               tasks) dockerfile="services/tasks/Dockerfile" ;;
               calendar) dockerfile="services/calendar/Dockerfile" ;;
               dashboard) dockerfile="services/dashboard/Dockerfile" ;;
-              gateway) dockerfile="services/gateway/Dockerfile" ;;
               *) echo "::error::Unknown component ${component}"; exit 1 ;;
             esac
 
             repository="${IMAGE_REPOSITORY_PREFIX}-${component}"
-            image_ref="${repository}:${RESOLVED_IMAGE_TAG}"
+            image_ref="${repository}:${IMAGE_TAG}"
             build_args=()
 
             if [ "${component}" = "web" ]; then
@@ -109,18 +95,7 @@ jobs:
               )
             fi
 
-            if [ "${USE_CACHE}" = "false" ]; then
-              echo "::notice::Prod environment: Building ${component} WITHOUT cache (--no-cache)..."
-              build_args+=(--no-cache)
-            else
-              echo "::notice::Dev environment: Building ${component} WITH GHA cache..."
-              build_args+=(
-                --cache-from "type=gha,scope=${component}"
-                --cache-to "type=gha,mode=max,scope=${component}"
-              )
-            fi
-
-            docker buildx build "${build_args[@]}" -f "${dockerfile}" -t "${image_ref}" --load "${DOCKER_BUILD_CONTEXT}"
+            docker build "${build_args[@]}" -f "${dockerfile}" -t "${image_ref}" "${DOCKER_BUILD_CONTEXT}"
             echo "${component}_image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
             printf '%s\n' "${image_ref}" >> image-refs.txt
             printf '%s=%s\n' "${repository}" "${image_ref}" >> image-replacements.txt
@@ -141,7 +116,6 @@ jobs:
           image-ref: ${{ steps.images.outputs.web_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -151,7 +125,6 @@ jobs:
           image-ref: ${{ steps.images.outputs.profile_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -161,7 +134,6 @@ jobs:
           image-ref: ${{ steps.images.outputs.tasks_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -171,7 +143,6 @@ jobs:
           image-ref: ${{ steps.images.outputs.calendar_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
@@ -181,17 +152,6 @@ jobs:
           image-ref: ${{ steps.images.outputs.dashboard_image_ref }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivyignores: .trivyignore
-          format: table
-          exit-code: "1"
-
-      - name: Trivy Gateway Image Scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ steps.images.outputs.gateway_image_ref }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          trivyignores: .trivyignore
           format: table
           exit-code: "1"
 
