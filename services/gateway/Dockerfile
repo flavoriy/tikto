@@ -2,12 +2,12 @@
 
 FROM node:22-alpine AS base
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache openssl
 
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
+COPY services/gateway/package.json ./services/gateway/package.json
 COPY services/profile/package.json ./services/profile/package.json
 COPY services/tasks/package.json ./services/tasks/package.json
 COPY services/calendar/package.json ./services/calendar/package.json
@@ -18,32 +18,23 @@ COPY packages/service-runtime/package.json ./packages/service-runtime/package.js
 RUN npm ci --ignore-scripts
 
 FROM deps AS builder
-COPY apps/web ./apps/web
 COPY packages ./packages
-COPY tsconfig.json tsconfig.services.base.json ./
-ENV NODE_ENV=production
-ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-RUN npm run web:build
+COPY services/gateway ./services/gateway
+COPY tsconfig.services.json tsconfig.services.base.json ./
+COPY tooling ./tooling
+RUN npm run service:gateway:build
 RUN npm prune --omit=dev --ignore-scripts && npm cache clean --force
 
 FROM base AS runner
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
+ENV PORT=4000
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 service
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web ./apps/web
-COPY --from=builder --chown=nextjs:nodejs /app/packages ./packages
-USER nextjs
-EXPOSE 3000
-CMD ["npm", "--workspace", "@tikto/web", "run", "start"]
+COPY --from=builder --chown=service:nodejs /app/dist-services ./dist-services
+USER service
+EXPOSE 4000
+CMD ["npm", "run", "service:gateway:start"]
