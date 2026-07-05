@@ -70,6 +70,25 @@ playwright-report/
 - npm workspaces.
 - A Supabase project for authentication and Postgres.
 - Docker only if you want to run the container path locally.
+Available features:
+
+- Email/password authentication (with automatic registration if the account doesn't exist) and Google OAuth sign-in through Supabase Auth.
+- Protected dashboard layout with responsive navigation.
+- Task CRUD with status, priority, overdue, completed, upcoming, and board-oriented views.
+- Event CRUD with timed and all-day event handling.
+- Dashboard summaries for daily planning.
+- User profile and timezone settings.
+- Google integration routes for OAuth, import, incremental sync, retry, callback, and disconnect flows.
+- Telegram integration settings and reminder delivery foundations.
+- Health endpoint for Kubernetes readiness checks.
+
+In progress:
+
+- Calendar watch renewal exists as a route; longer-running automation is planned for production-style operation.
+- Existing Supabase databases should rerun the SQL setup/schema scripts when new reminder or sync columns are added.
+- End-to-end integration testing requires live third-party credentials and webhook configuration.
+
+## Technology Stack
 
 ## Environment
 
@@ -191,6 +210,11 @@ TIKTO_TASKS_API_URL=http://tikto-tasks:4200
 TIKTO_CALENDAR_API_URL=http://tikto-calendar:4300
 TIKTO_DASHBOARD_API_URL=http://tikto-dashboard:4400
 ```
+Workflow entrypoints:
+
+- `.github/workflows/pr-checks.yml` (runs CI checks on pull requests)
+- `.github/workflows/deploy-dev.yml` (runs CI and deploys to Dev on push to `dev` branch)
+- `.github/workflows/deploy-prod.yml` (runs CI and deploys to Prod on push to `main` branch)
 
 Use ConfigMaps for non-sensitive config such as service URLs and feature flags. Use Kubernetes Secrets, AWS Secrets Manager through External Secrets/CSI, or Vault Agent injection for sensitive values:
 
@@ -203,6 +227,10 @@ TOKEN_ENCRYPTION_KEY
 TIKTO_INTERNAL_API_KEY
 SUPABASE_SERVICE_ROLE_KEY
 ```
+| Workflow | Responsibility |
+|---|---|
+| `.github/workflows/ci.yaml` | ESLint analysis, TypeScript validation, production build, unit tests with coverage, and SonarCloud analysis |
+| `.github/workflows/cd.yaml` | Docker build, HIGH/CRITICAL Trivy scan, GHCR push, GitOps manifest update, and Argo CD verification |
 
 Runtime env var changes require a pod restart or rollout.
 
@@ -212,6 +240,23 @@ Internal services write structured JSON logs to stdout:
 
 - `service_listening` when a service starts.
 - `http_request` for each non-health request, including `requestId`, method, path, status, duration, and error code.
+| Event | Behavior |
+|---|---|
+| Pull request to `dev` or `main` | Runs CI only; no deployment from pull requests |
+| Push or merge to `dev` | Runs CI and deploys to the development environment |
+| Push or merge to `main` | Runs CI and deploys through the protected `prod` GitHub Environment |
+| Manual dispatch | Runs the same workflow manually |
+
+## Delivery Workflow
+
+1. GitHub Actions validates linting, types, tests, coverage, and production build.
+2. SonarCloud runs quality analysis when configured for the event.
+3. The deployment job assumes an AWS role through GitHub Actions OIDC.
+4. Shared and environment-specific values are loaded from AWS Secrets Manager.
+5. Docker builds the application image with environment-specific public build arguments.
+6. Trivy scans the image and fails on HIGH or CRITICAL vulnerabilities.
+7. The approved image is pushed to GHCR.
+8. The matching GitOps image patch is updated:
 
 Healthcheck request logs are hidden by default. Enable them while debugging:
 
@@ -222,6 +267,7 @@ LOG_HEALTHCHECKS=true npm run service:profile:start
 The web BFF propagates `x-request-id` to internal services. If the incoming request does not have one, the web app generates it.
 
 ## CI/CD and GitOps
+## CI/CD Configuration
 
 GitHub Actions runs CI before deploy. The deploy workflow then builds, scans, and pushes all five images.
 
@@ -244,3 +290,4 @@ apps/tikto/overlays/<env>/patch-image.yaml
 ```
 
 That patch file must contain image lines for all five image repositories. The deploy workflow fails if any expected image repository is missing, which prevents a partial production update.
+The IAM role needs `secretsmanager:GetSecretValue` access for those secret IDs.
