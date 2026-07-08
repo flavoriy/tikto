@@ -30,8 +30,76 @@ env:
   GITOPS_BRANCH: main
 
 jobs:
+  detect-changes:
+    name: Detect Changed Components
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.set-matrix.outputs.components }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'tooling/**'
+              - 'packages/**'
+            gateway:
+              - 'services/gateway/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.services.json'
+              - 'tooling/**'
+              - 'packages/**'
+            profile:
+              - 'services/profile/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.services.json'
+              - 'tooling/**'
+              - 'packages/**'
+            tasks:
+              - 'services/tasks/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.services.json'
+              - 'tooling/**'
+              - 'packages/**'
+            calendar:
+              - 'services/calendar/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.services.json'
+              - 'tooling/**'
+              - 'packages/**'
+            dashboard:
+              - 'services/dashboard/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.services.json'
+              - 'tooling/**'
+              - 'packages/**'
+
+      - name: Determine Matrix
+        id: set-matrix
+        run: |
+          CHANGES='${{ steps.filter.outputs.changes }}'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$CHANGES" = "[]" ] || [ -z "$CHANGES" ]; then
+            echo 'components=["web", "gateway", "profile", "tasks", "calendar", "dashboard"]' >> $GITHUB_OUTPUT
+          else
+            echo "components=${CHANGES}" >> $GITHUB_OUTPUT
+          fi
+
   build-and-push:
     name: Build, Scan & Push (${{ matrix.component }})
+    needs: detect-changes
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name }}
     permissions:
@@ -41,7 +109,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        component: [web, profile, tasks, calendar, dashboard]
+        component: ${{ fromJSON(needs.detect-changes.outputs.components) }}
 
     steps:
       - name: Checkout
@@ -49,23 +117,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup AWS and Secrets
+        uses: ./.github/actions/setup-aws-and-secrets
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Load Shared Secret
-        uses: ./.github/actions/load-aws-secrets
-        with:
-          secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
           region: ${{ env.AWS_REGION }}
-
-      - name: Load App Secret
-        uses: ./.github/actions/load-aws-secrets
-        with:
-          secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
-          region: ${{ env.AWS_REGION }}
+          shared-secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
+          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,15 +134,21 @@ jobs:
           path: ~/.cache/trivy
           key: trivy-db-${{ runner.os }}
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Docker Build (with Layer Cache)
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           component="${{ matrix.component }}"
           case "${component}" in
             web) dockerfile="apps/web/Dockerfile" ;;
+            gateway) dockerfile="services/gateway/Dockerfile" ;;
             profile) dockerfile="services/profile/Dockerfile" ;;
             tasks) dockerfile="services/tasks/Dockerfile" ;;
             calendar) dockerfile="services/calendar/Dockerfile" ;;
@@ -94,8 +158,6 @@ jobs:
 
           repository="${IMAGE_REPOSITORY_PREFIX}-${component}"
           image_ref="${repository}:${IMAGE_TAG}"
-
-          echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${GITHUB_ACTOR}" --password-stdin
 
           build_args=()
           if [ "${component}" = "web" ]; then
@@ -126,16 +188,13 @@ jobs:
           exit-code: "1"
 
       - name: Push Docker Image to GHCR
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${GITHUB_ACTOR}" --password-stdin
           docker push "${IMAGE_REPOSITORY_PREFIX}-${{ matrix.component }}:${IMAGE_TAG}"
 
   deploy-gitops:
     name: Update GitOps & Verify ArgoCD
-    needs: build-and-push
+    needs: [detect-changes, build-and-push]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name }}
     permissions:
@@ -151,6 +210,31 @@ jobs:
         id: context
         uses: ./.github/actions/build-context
 
+      - name: Generate GitOps Configurations
+        id: gitops-config
+        run: |
+          COMPONENTS='${{ needs.detect-changes.outputs.components }}'
+          IMAGE_TAG='${{ env.IMAGE_TAG }}'
+          IMAGE_PREFIX='${{ env.IMAGE_REPOSITORY_PREFIX }}'
+          
+          REPLACEMENTS=""
+          VERIFY_REFS=""
+          
+          for component in $(echo "$COMPONENTS" | jq -r '.[]'); do
+            ref="${IMAGE_PREFIX}-${component}:${IMAGE_TAG}"
+            REPLACEMENTS="${REPLACEMENTS}${IMAGE_PREFIX}-${component}=${ref}"$'\n'
+            VERIFY_REFS="${VERIFY_REFS}${ref}"$'\n'
+          done
+          
+          # Write outputs to GITHUB_OUTPUT
+          echo "replacements<<EOF" >> $GITHUB_OUTPUT
+          echo -n "$REPLACEMENTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "verify_refs<<EOF" >> $GITHUB_OUTPUT
+          echo -n "$VERIFY_REFS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Update GitOps Manifest
         uses: ./.github/actions/update-gitops
         with:
@@ -158,16 +242,11 @@ jobs:
           branch: ${{ env.GITOPS_BRANCH }}
           manifest-file: ${{ steps.context.outputs.manifest-file }}
           git-token: ${{ secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
-          image-replacements: |
-            ${{ env.IMAGE_REPOSITORY_PREFIX }}-web=${{ env.IMAGE_REPOSITORY_PREFIX }}-web:${{ env.IMAGE_TAG }}
-            ${{ env.IMAGE_REPOSITORY_PREFIX }}-profile=${{ env.IMAGE_REPOSITORY_PREFIX }}-profile:${{ env.IMAGE_TAG }}
-            ${{ env.IMAGE_REPOSITORY_PREFIX }}-tasks=${{ env.IMAGE_REPOSITORY_PREFIX }}-tasks:${{ env.IMAGE_TAG }}
-            ${{ env.IMAGE_REPOSITORY_PREFIX }}-calendar=${{ env.IMAGE_REPOSITORY_PREFIX }}-calendar:${{ env.IMAGE_TAG }}
-            ${{ env.IMAGE_REPOSITORY_PREFIX }}-dashboard=${{ env.IMAGE_REPOSITORY_PREFIX }}-dashboard:${{ env.IMAGE_TAG }}
+          image-replacements: ${{ steps.gitops-config.outputs.replacements }}
           commit-message: "chore(${{ inputs.deploy-env }}): deploy TikTo ${{ env.IMAGE_TAG }}"
 
       - name: Verify ArgoCD
         uses: ./.github/actions/verify-argocd
         with:
           app-name: ${{ steps.context.outputs.argocd-app-name }}
-          image-ref: ${{ env.IMAGE_REPOSITORY_PREFIX }}-web:${{ env.IMAGE_TAG }}
+          image-ref: ${{ steps.gitops-config.outputs.verify_refs }}

@@ -17,6 +17,7 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      TIKTO_GATEWAY_API_URL: http://tikto-gateway:4000
       TIKTO_PROFILE_API_URL: http://tikto-profile:4100
       TIKTO_TASKS_API_URL: http://tikto-tasks:4200
       TIKTO_CALENDAR_API_URL: http://tikto-calendar:4300
@@ -25,6 +26,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
+      tikto-gateway:
+        condition: service_healthy
       tikto-profile:
         condition: service_healthy
       tikto-tasks:
@@ -33,6 +36,32 @@ services:
         condition: service_healthy
       tikto-dashboard:
         condition: service_healthy
+    networks:
+      - tikto-internal
+
+  tikto-gateway:
+    image: tikto-gateway:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4000
+      TIKTO_PROFILE_API_URL: http://tikto-profile:4100
+      TIKTO_TASKS_API_URL: http://tikto-tasks:4200
+      TIKTO_CALENDAR_API_URL: http://tikto-calendar:4300
+      TIKTO_DASHBOARD_API_URL: http://tikto-dashboard:4400
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4000"
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - tikto-internal
 
