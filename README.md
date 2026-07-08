@@ -2,18 +2,19 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=flavoriy_tikto)](https://sonarcloud.io/summary/new_code?id=flavoriy_tikto)
 
-TikTo is a workspace monorepo split into one public web/BFF app and four internal services.
+TikTo is a workspace monorepo split into one public web/BFF app and five internal microservices (`gateway`, `profile`, `tasks`, `calendar`, `dashboard`).
 
 ```text
 Browser
   -> apps/web             # Next.js UI and BFF proxy routes
-     -> services/profile  # profile domain and persistence
-     -> services/tasks    # task domain and persistence
-     -> services/calendar # calendar/event domain and persistence
-     -> services/dashboard # dashboard composition over internal HTTP APIs
+     -> services/gateway   # API Gateway (rate limiting, route proxying, health aggregation)
+        -> services/profile   # profile domain and persistence
+        -> services/tasks     # task domain and persistence
+        -> services/calendar  # calendar/event domain and persistence
+        -> services/dashboard # dashboard composition over internal HTTP APIs
 ```
 
-Only `apps/web` should receive public traffic. The services are intended to run behind Docker Compose or Kubernetes networking.
+Only `apps/web` (and optionally `services/gateway` internally) should receive incoming client traffic. The internal services run behind Docker Compose or Kubernetes cluster networking.
 
 ## Repository Layout
 
@@ -27,6 +28,10 @@ apps/
     tsconfig.json
 
 services/
+  gateway/
+    src/
+    Dockerfile
+    package.json
   profile/
     src/
     prisma/schema.prisma
@@ -80,6 +85,7 @@ Minimum local values:
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
+TIKTO_GATEWAY_API_URL=http://localhost:4000
 TIKTO_PROFILE_API_URL=http://localhost:4100
 TIKTO_TASKS_API_URL=http://localhost:4200
 TIKTO_CALENDAR_API_URL=http://localhost:4300
@@ -108,7 +114,7 @@ Install dependencies:
 npm install
 ```
 
-Build all internal services:
+Build all internal services (including gateway):
 
 ```bash
 npm run services:build
@@ -117,6 +123,7 @@ npm run services:build
 Run each process in a separate terminal:
 
 ```bash
+npm run service:gateway:start
 npm run service:profile:start
 npm run service:tasks:start
 npm run service:calendar:start
@@ -128,6 +135,7 @@ Health checks:
 
 ```text
 http://localhost:3000/api/health
+http://localhost:4000/health
 http://localhost:4100/health
 http://localhost:4200/health
 http://localhost:4300/health
@@ -140,7 +148,9 @@ http://localhost:4400/health
 |---|---|
 | `npm run dev` | Start `apps/web` with the Next.js dev server |
 | `npm run web:build` | Build the web app |
-| `npm run services:build` | Generate service Prisma clients and compile all services |
+| `npm run services:build` | Generate Prisma clients and compile all internal services |
+| `npm run service:gateway:build` | Build the API gateway service |
+| `npm run service:gateway:start` | Start the compiled gateway service |
 | `npm run service:profile:start` | Start the compiled profile service |
 | `npm run service:tasks:start` | Start the compiled tasks service |
 | `npm run service:calendar:start` | Start the compiled calendar service |
@@ -157,6 +167,7 @@ Each deployable unit owns its Dockerfile:
 
 ```bash
 docker compose build tikto-web
+docker compose build tikto-gateway
 docker compose build tikto-profile
 docker compose build tikto-tasks
 docker compose build tikto-calendar
@@ -173,6 +184,7 @@ The image model is one image per deployable unit:
 
 ```text
 ghcr.io/flavoriy/tikto-web
+ghcr.io/flavoriy/tikto-gateway
 ghcr.io/flavoriy/tikto-profile
 ghcr.io/flavoriy/tikto-tasks
 ghcr.io/flavoriy/tikto-calendar
@@ -181,11 +193,12 @@ ghcr.io/flavoriy/tikto-dashboard
 
 ## Kubernetes
 
-Deploy each unit as its own Deployment and ClusterIP Service. Expose only `tikto-web`.
+Deploy each unit as its own Deployment and ClusterIP Service. Expose `tikto-web` and `tikto-gateway`.
 
 Example internal URLs for the web pod:
 
 ```env
+TIKTO_GATEWAY_API_URL=http://tikto-gateway:4000
 TIKTO_PROFILE_API_URL=http://tikto-profile:4100
 TIKTO_TASKS_API_URL=http://tikto-tasks:4200
 TIKTO_CALENDAR_API_URL=http://tikto-calendar:4300
@@ -216,14 +229,14 @@ Internal services write structured JSON logs to stdout:
 Healthcheck request logs are hidden by default. Enable them while debugging:
 
 ```bash
-LOG_HEALTHCHECKS=true npm run service:profile:start
+LOG_HEALTHCHECKS=true npm run service:gateway:start
 ```
 
 The web BFF propagates `x-request-id` to internal services. If the incoming request does not have one, the web app generates it.
 
 ## CI/CD and GitOps
 
-GitHub Actions runs CI before deploy. The deploy workflow then builds, scans, and pushes all five images.
+GitHub Actions runs CI before deploy. The deploy workflow then builds, scans, and pushes all six images (`web`, `gateway`, `profile`, `tasks`, `calendar`, `dashboard`).
 
 Production approval is handled by the GitHub Environment named `prod`. Configure required reviewers in GitHub:
 
@@ -243,4 +256,5 @@ The expected manifest patch path is:
 apps/tikto/overlays/<env>/patch-image.yaml
 ```
 
-That patch file must contain image lines for all five image repositories. The deploy workflow fails if any expected image repository is missing, which prevents a partial production update.
+That patch file contains image lines for all image repositories. The deploy workflow fails if any expected image repository is missing, which prevents a partial production update.
+

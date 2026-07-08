@@ -1,0 +1,48 @@
+name: Cleanup Branch Caches
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to cleanup caches for'
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup Caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Determine the branch/ref to clean up
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="refs/pull/${{ inputs.pr_number }}/merge"
+          else
+            REF="refs/pull/${{ github.event.pull_request.number }}/merge"
+          fi
+
+          echo "Fetching list of caches for ref: ${REF}..."
+          
+          # List caches for the ref and delete each one using GitHub CLI
+          cache_ids=$(gh cache list --repo "${{ github.repository }}" --ref "${REF}" --limit 100 --json id --jq '.[].id' || true)
+
+          if [ -z "${cache_ids}" ]; then
+            echo "No caches found for ref ${REF}."
+          else
+            for id in ${cache_ids}; do
+              echo "Deleting cache ID: ${id}..."
+              gh cache delete "${id}" --repo "${{ github.repository }}"
+            done
+            echo "Caches cleaned up successfully."
+          fi
