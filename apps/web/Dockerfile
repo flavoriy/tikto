@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-FROM tikto-base:local AS builder
+ARG BASE_IMAGE=tikto-base:local
+FROM ${BASE_IMAGE} AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY apps/web ./apps/web
 COPY packages ./packages
