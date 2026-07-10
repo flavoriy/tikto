@@ -65,6 +65,7 @@ export async function GET() {
       ok,
       checkedAt,
       service: "tikto-web",
+      version: process.env.NEXT_PUBLIC_APP_VERSION || "unknown",
       web: {
         ok: true,
       },

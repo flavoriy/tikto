@@ -65,7 +65,7 @@ export function AppFrame({ children }: AppFrameProps) {
             <span className="relative inline-flex size-2 rounded-full bg-accent"></span>
           </span>
           <span className="text-[14px] font-extrabold tracking-tight text-foreground">
-            v{pkg.version}
+            {process.env.NEXT_PUBLIC_APP_VERSION || `v${pkg.version}`}
           </span>
         </div>
       </div>

@@ -27,7 +27,8 @@
     "service:calendar:start": "node dist-services/services/calendar/src/server.js",
     "service:dashboard:start": "node dist-services/services/dashboard/src/server.js",
     "service:gateway:start": "node dist-services/services/gateway/src/server.js",
-    "services:copy-prisma": "node tooling/scripts/copy-service-prisma-client.mjs profile tasks calendar"
+    "services:copy-prisma": "node tooling/scripts/copy-service-prisma-client.mjs profile tasks calendar",
+    "docker:build-base": "docker build -t tikto-base:local -f base.Dockerfile ."
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",
