@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-FROM tikto-base:local AS builder
+ARG BASE_IMAGE=tikto-base:local
+FROM ${BASE_IMAGE} AS builder
 COPY packages ./packages
 COPY services/dashboard ./services/dashboard
 COPY tsconfig.services.json tsconfig.services.base.json ./
