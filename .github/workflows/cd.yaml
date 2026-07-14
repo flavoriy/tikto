@@ -115,7 +115,7 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           region: ${{ env.AWS_REGION }}
           shared-secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
-          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
+          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/secrets
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -163,7 +163,7 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           region: ${{ env.AWS_REGION }}
           shared-secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
-          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/${{ inputs.deploy-env }}
+          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/secrets
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
