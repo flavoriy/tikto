@@ -1,0 +1,114 @@
+name: Promote Dev to Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0 or v1.0.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  ci-check:
+    name: CI Verification
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  promote:
+    name: Promote Release
+    needs: ci-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve Tag Version
+        id: version_step
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            INPUT_VER="${{ inputs.version }}"
+            VERSION="${INPUT_VER#v}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup regctl
+        uses: regclient/actions/regctl-installer@v0.8.0
+
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'Flavoriy/gitops-manifest'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: 'gitops-manifest'
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote Images and Update Prod Manifest
+        env:
+          NEW_TAG: "${{ steps.version_step.outputs.tag }}"
+          DEV_PATCH: "gitops-manifest/apps/tikto/overlays/dev/patch-image.yaml"
+          PROD_PATCH: "gitops-manifest/apps/tikto/overlays/prod/patch-image.yaml"
+          REGISTRY_PREFIX: "ghcr.io/flavoriy/tikto"
+        run: |
+          set -euo pipefail
+
+          components=(web gateway profile tasks calendar dashboard)
+
+          for component in "${components[@]}"; do
+            image_repo="${REGISTRY_PREFIX}-${component}"
+
+            # Extract current image tag from dev patch-image.yaml
+            current_image=$(grep "image: ${image_repo}:" "$DEV_PATCH" | head -n 1 | awk '{print $2}' || true)
+            
+            if [ -n "$current_image" ]; then
+              current_tag="${current_image##*:}"
+              echo "------------------------------------------------"
+              echo "🚀 Promoting component: $component"
+              echo "   Dev tag  : $current_tag"
+              echo "   Prod tag : $NEW_TAG"
+
+              # Re-tag docker image directly on GHCR without rebuilding
+              regctl image copy "${image_repo}:${current_tag}" "${image_repo}:${NEW_TAG}"
+
+              # Update Prod patch-image.yaml
+              sed -i -E "s#image: ${image_repo}:.*#image: ${image_repo}:${NEW_TAG}#g" "$PROD_PATCH"
+              
+              echo "✅ Promoted $component successfully"
+            else
+              echo "⚠️ Skip $component: Image reference not found in Dev patch."
+            fi
+          done
+
+      - name: Commit & Push GitOps Manifest
+        run: |
+          cd gitops-manifest
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add apps/tikto/overlays/prod/patch-image.yaml
+
+          if git diff --staged --quiet; then
+            echo "No changes in Prod manifest."
+          else
+            git commit -m "chore(prod): promote dev to ${{ steps.version_step.outputs.tag }} [skip ci]"
+            git push origin main
+            
+            echo "🎉 Release Promotion completed successfully!"
+          fi

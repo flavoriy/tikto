@@ -1,132 +1,264 @@
-# TaskFlow
+# TikTo
 
-TaskFlow is a personal planning web app built with Next.js App Router, TypeScript, Tailwind CSS, Supabase Auth, Supabase PostgreSQL, and Prisma.
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=flavoriy_tikto)](https://sonarcloud.io/summary/new_code?id=flavoriy_tikto)
 
-Current implementation focus:
-- Google-only sign-in through Supabase Auth
-- Protected app shell with dashboard, tasks, calendar, integrations, and settings
-- Task CRUD with timezone-aware status, priority, overdue, and board views
-- Event CRUD with timed vs all-day semantics
-- Responsive desktop/mobile navigation
-- Google Calendar/Tasks sync and Telegram reminder delivery foundations
+TikTo is a workspace monorepo split into one public web/BFF app and five internal microservices (`gateway`, `profile`, `tasks`, `calendar`, `dashboard`).
 
-## Tech Stack
+```text
+Browser
+  -> apps/web             # Next.js UI and BFF proxy routes
+     -> services/gateway   # API Gateway (rate limiting, route proxying, health aggregation)
+        -> services/profile   # profile domain and persistence
+        -> services/tasks     # task domain and persistence
+        -> services/calendar  # calendar/event domain and persistence
+        -> services/dashboard # dashboard composition over internal HTTP APIs
+```
 
-- Next.js 16 App Router
-- React 19
-- Tailwind CSS 4
-- Supabase Auth + SSR helpers
-- Prisma ORM
-- PostgreSQL-ready schema
+Only `apps/web` (and optionally `services/gateway` internally) should receive incoming client traffic. The internal services run behind Docker Compose or Kubernetes cluster networking.
 
-## Local Setup
+## Repository Layout
 
-1. Install dependencies:
+```text
+apps/
+  web/
+    src/
+    Dockerfile
+    package.json
+    next.config.ts
+    tsconfig.json
+
+services/
+  gateway/
+    src/
+    Dockerfile
+    package.json
+  profile/
+    src/
+    prisma/schema.prisma
+    Dockerfile
+    package.json
+  tasks/
+    src/
+    prisma/schema.prisma
+    Dockerfile
+    package.json
+  calendar/
+    src/
+    prisma/schema.prisma
+    Dockerfile
+    package.json
+  dashboard/
+    src/
+    Dockerfile
+    package.json
+
+packages/
+  contracts/        # DTO validation and serializers shared across service boundaries
+  service-runtime/  # HTTP, health, logging, error, and DB helpers for services
+  shared/           # generic utilities such as dates and Supabase env helpers
+```
+
+Generated files and build outputs are not committed:
+
+```text
+apps/web/.next/
+dist-services/
+services/*/src/generated/
+coverage/
+test-results/
+playwright-report/
+```
+
+## Requirements
+
+- Node.js 24.x for local development parity with the current lockfile.
+- npm workspaces.
+- A Supabase project for authentication and Postgres.
+- Docker only if you want to run the container path locally.
+
+## Environment
+
+Create a root `.env` or `.env.local` from `.env.example`. Keep env files out of git.
+
+Minimum local values:
+
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+TIKTO_GATEWAY_API_URL=http://localhost:4000
+TIKTO_PROFILE_API_URL=http://localhost:4100
+TIKTO_TASKS_API_URL=http://localhost:4200
+TIKTO_CALENDAR_API_URL=http://localhost:4300
+TIKTO_DASHBOARD_API_URL=http://localhost:4400
+TIKTO_INTERNAL_API_KEY=
+
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+DATABASE_URL=
+PROFILE_DATABASE_URL=
+TASKS_DATABASE_URL=
+CALENDAR_DATABASE_URL=
+TOKEN_ENCRYPTION_KEY=
+```
+
+Use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for newer Supabase projects. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is still accepted for older projects.
+
+## Local Development
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Copy environment variables:
+Build all internal services (including gateway):
 
 ```bash
-cp .env.example .env.local
+npm run services:build
 ```
 
-3. Fill in at minimum:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `DATABASE_URL`
-- `NEXT_PUBLIC_APP_URL`
-
-Provider features need additional server-side env:
-- Google sync: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`
-- Telegram reminder scheduling: `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`
-- Telegram bot tokens are saved per user from the Integrations page and encrypted with `TOKEN_ENCRYPTION_KEY`.
-
-If your Postgres password contains special characters such as `@` or `#`, percent-encode them inside `DATABASE_URL` or Prisma will fail to parse the host correctly.
-For Vercel, set `DATABASE_URL` to the Supabase `Connect` -> `Connection Pooler` / Supavisor string, not the direct `db.<project-ref>.supabase.co:5432` host.
-Supabase direct database hosts require IPv6; the pooler supports IPv4-compatible environments such as Vercel.
-
-4. Generate Prisma client:
+Run each process in a separate terminal:
 
 ```bash
-npm run prisma:generate
-```
-
-5. Start the app:
-
-```bash
+npm run service:gateway:start
+npm run service:profile:start
+npm run service:tasks:start
+npm run service:calendar:start
+npm run service:dashboard:start
 npm run dev
 ```
 
-## Supabase Auth Profile Mapping
+Health checks:
 
-The application expects:
-- `profiles.id = auth.users.id`
-- a row in `profiles` to be provisioned automatically when a new auth user is created
-
-Use [supabase/setup.sql](supabase/setup.sql) in your Supabase SQL editor to create the profile trigger.
-
-## Verification Commands
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
+```text
+http://localhost:3000/api/health
+http://localhost:4000/health
+http://localhost:4100/health
+http://localhost:4200/health
+http://localhost:4300/health
+http://localhost:4400/health
 ```
 
-## GitHub Actions CI/CD
+## Scripts
 
-Workflow entrypoint: `.github/workflows/ci-cd.yml`.
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Start `apps/web` with the Next.js dev server |
+| `npm run web:build` | Build the web app |
+| `npm run services:build` | Generate Prisma clients and compile all internal services |
+| `npm run service:gateway:build` | Build the API gateway service |
+| `npm run service:gateway:start` | Start the compiled gateway service |
+| `npm run service:profile:start` | Start the compiled profile service |
+| `npm run service:tasks:start` | Start the compiled tasks service |
+| `npm run service:calendar:start` | Start the compiled calendar service |
+| `npm run service:dashboard:start` | Start the compiled dashboard service |
+| `npm run typecheck` | Typecheck web, packages, and services |
+| `npm run test:run` | Run Vitest tests |
+| `npm run lint` | Run ESLint |
 
-The entrypoint stays small and calls reusable workflow files:
+The old `api:*` aliases were removed so there is no longer a misleading shared API service entrypoint.
 
-- `.github/workflows/ci.yaml`
-- `.github/workflows/cd.yaml`
+## Containers & Optimization
 
-Reusable step logic lives in local composite actions under `.github/actions/`.
+To optimize build performance and save CI resources, TikTo uses a **Docker Base Image** pattern:
+- **`base.Dockerfile`**: Contains the common Node.js 22 runtime, system dependencies (`openssl`, `libc6-compat`), and root `node_modules` (installed via `npm ci`).
+- **Service Dockerfiles**: Use a parameterized `ARG BASE_IMAGE` build argument defaulting to `tikto-base:local`. They copy compiled code from the base image instead of re-installing dependencies.
 
-Flow:
+### Local Development with Containers
 
-1. Pull requests into `dev` or `main` run the `CI` job only: install, lint, typecheck, unit tests, build, and SonarQube Cloud.
-2. The PR job uses GitHub's `pull_request` merge ref, so tests run against the merged result, not only the source branch.
-3. The SonarQube Cloud step uses `sonar.qualitygate.wait=true`, so the `CI` job fails if the Quality Gate fails.
-4. Push/merge into `dev` runs `CI` first, then `Deploy Dev` automatically.
-5. Push/merge into `main` runs `CI` first, then `Deploy Prod`. `Deploy Prod` references the `prod` GitHub Environment and should be protected with required reviewers.
+1. Build the base image locally:
+   ```bash
+   npm run docker:build-base
+   ```
+2. Build the individual service containers (this will be nearly instantaneous):
+   ```bash
+   docker compose build
+   ```
+3. Run everything locally:
+   ```bash
+   docker compose up
+   ```
 
-For branch deployments, configure repository secret:
+The image repositories are:
+```text
+ghcr.io/flavoriy/tikto-base
+ghcr.io/flavoriy/tikto-web
+ghcr.io/flavoriy/tikto-gateway
+ghcr.io/flavoriy/tikto-profile
+ghcr.io/flavoriy/tikto-tasks
+ghcr.io/flavoriy/tikto-calendar
+ghcr.io/flavoriy/tikto-dashboard
+```
 
-- `AWS_ROLE_TO_ASSUME`: IAM role ARN that GitHub Actions can assume with OIDC.
+## Kubernetes
 
-The workflow reads these AWS Secrets Manager secrets in `ap-southeast-1`:
+Deploy each unit as its own Deployment and ClusterIP Service. Expose `tikto-web` and `tikto-gateway`.
 
-- `tikto/shared`
-- `tikto/dev`
-- `tikto/prod`
+Example internal URLs for the web pod:
 
-The IAM role needs `secretsmanager:GetSecretValue` for those secrets. The shared secret should contain values such as `SONAR_TOKEN`, `GHCR_USERNAME`, `GHCR_TOKEN`, `GITOPS_USERNAME`, `GITOPS_TOKEN`, `ARGOCD_SERVER`, and `ARGOCD_TOKEN`.
+```env
+TIKTO_GATEWAY_API_URL=http://tikto-gateway:4000
+TIKTO_PROFILE_API_URL=http://tikto-profile:4100
+TIKTO_TASKS_API_URL=http://tikto-tasks:4200
+TIKTO_CALENDAR_API_URL=http://tikto-calendar:4300
+TIKTO_DASHBOARD_API_URL=http://tikto-dashboard:4400
+```
 
-Required GitHub settings:
+Use ConfigMaps for non-sensitive config such as service URLs and feature flags. Use Kubernetes Secrets, AWS Secrets Manager through External Secrets/CSI, or Vault Agent injection for sensitive values:
 
-- Branch protection for `dev` and `main`: require the `CI` status check before merge.
-- Environment `dev`: no required reviewers.
-- Environment `prod`: add required reviewers to approve production deployment.
+```text
+DATABASE_URL
+PROFILE_DATABASE_URL
+TASKS_DATABASE_URL
+CALENDAR_DATABASE_URL
+TOKEN_ENCRYPTION_KEY
+TIKTO_INTERNAL_API_KEY
+SUPABASE_SERVICE_ROLE_KEY
+```
 
-## Current Scope
+Runtime env var changes require a pod restart or rollout.
 
-Implemented now:
-- Core MVP foundation
-- Task CRUD APIs and UI
-- Event CRUD APIs and UI
-- Dashboard summaries
-- Settings page with timezone/profile update
-- Telegram settings, status guidance, and reminder scheduling through QStash
-- Google integration routes
-- Google bootstrap import job
-- Google Calendar webhook
-- Google Calendar/Tasks sync helpers
+## Logs and Trace
 
-Still partial:
-- Calendar watch renewal route is present but not automated end-to-end yet.
-- Existing Supabase databases should rerun the SQL setup/schema scripts so newly added reminder and sync columns are added idempotently.
+Internal services write structured JSON logs to stdout:
+
+- `service_listening` when a service starts.
+- `http_request` for each non-health request, including `requestId`, method, path, status, duration, and error code.
+
+Healthcheck request logs are hidden by default. Enable them while debugging:
+
+```bash
+LOG_HEALTHCHECKS=true npm run service:gateway:start
+```
+
+The web BFF propagates `x-request-id` to internal services. If the incoming request does not have one, the web app generates it.
+
+## CI/CD and GitOps
+
+GitHub Actions runs CI and security checks before deploying. The deployment workflow behaves as follows:
+1. **Build Base Image**: It first builds and pushes the common dependencies base image `ghcr.io/flavoriy/tikto-base:${IMAGE_TAG}` to GitHub Container Registry (using GHA layer cache to complete in seconds if dependencies have not changed).
+2. **Build Microservices (Parallel Matrix)**: It launches parallel matrix jobs to build, scan (via Trivy), and push the microservice images (`web`, `gateway`, `profile`, `tasks`, `calendar`, `dashboard`), passing the built base image via `--build-arg BASE_IMAGE`. Only services with detected changes (calculated via `dorny/paths-filter`) are built and pushed.
+
+Production approval is handled by the GitHub Environment named `prod`. Configure required reviewers in GitHub:
+
+```text
+Settings -> Environments -> prod -> Required reviewers
+```
+
+GitOps manifests are stored outside this app repo in:
+
+```text
+https://github.com/Flavoriy/gitops-manifest.git
+```
+
+The expected manifest patch path is:
+
+```text
+apps/tikto/overlays/<env>/patch-image.yaml
+```
+
+That patch file contains image lines for all image repositories. The deploy workflow fails if any expected image repository is missing, which prevents a partial production update.
+

@@ -1,0 +1,75 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TASKS_DATABASE_URL")
+  schemas  = ["public"]
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+
+  @@schema("public")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("public")
+}
+
+enum SyncStatus {
+  LOCAL_ONLY
+  PENDING_CREATE
+  PENDING_UPDATE
+  PENDING_DELETE
+  SYNCED
+  FAILED
+
+  @@schema("public")
+}
+
+enum SyncDirection {
+  APP_TO_GOOGLE
+  GOOGLE_TO_APP
+
+  @@schema("public")
+}
+
+model Task {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  title             String
+  description       String?
+  status            TaskStatus
+  priority          TaskPriority
+  dueDate           String?        @map("due_date") @db.VarChar(10)
+  dueTime           String?        @map("due_time") @db.VarChar(5)
+  dueAtUtc          DateTime?      @map("due_at_utc") @db.Timestamptz(6)
+  completedAt       DateTime?      @map("completed_at") @db.Timestamptz(6)
+  googleTaskId      String?        @map("google_task_id")
+  googleTasklistId  String?        @map("google_tasklist_id")
+  googleEtag        String?        @map("google_etag")
+  googleUpdatedAt   DateTime?      @map("google_updated_at") @db.Timestamptz(6)
+  syncStatus        SyncStatus     @default(LOCAL_ONLY) @map("sync_status")
+  lastSyncDirection SyncDirection? @map("last_sync_direction")
+  lastSyncedAt      DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  syncError         String?        @map("sync_error")
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([googleTaskId])
+  @@map("tasks")
+  @@schema("public")
+}

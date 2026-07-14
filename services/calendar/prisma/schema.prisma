@@ -1,0 +1,59 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CALENDAR_DATABASE_URL")
+  schemas  = ["public"]
+}
+
+enum SyncStatus {
+  LOCAL_ONLY
+  PENDING_CREATE
+  PENDING_UPDATE
+  PENDING_DELETE
+  SYNCED
+  FAILED
+
+  @@schema("public")
+}
+
+enum SyncDirection {
+  APP_TO_GOOGLE
+  GOOGLE_TO_APP
+
+  @@schema("public")
+}
+
+model Event {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  title             String
+  description       String?
+  color             String?
+  isAllDay          Boolean        @default(false) @map("is_all_day")
+  startAtUtc        DateTime?      @map("start_at_utc") @db.Timestamptz(6)
+  endAtUtc          DateTime?      @map("end_at_utc") @db.Timestamptz(6)
+  startDate         String?        @map("start_date") @db.VarChar(10)
+  endDate           String?        @map("end_date") @db.VarChar(10)
+  googleEventId     String?        @map("google_event_id")
+  googleCalendarId  String?        @map("google_calendar_id")
+  googleEtag        String?        @map("google_etag")
+  googleUpdatedAt   DateTime?      @map("google_updated_at") @db.Timestamptz(6)
+  syncStatus        SyncStatus     @default(LOCAL_ONLY) @map("sync_status")
+  lastSyncDirection SyncDirection? @map("last_sync_direction")
+  lastSyncedAt      DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  syncError         String?        @map("sync_error")
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId, startDate])
+  @@index([userId, startAtUtc])
+  @@index([googleEventId])
+  @@map("events")
+  @@schema("public")
+}
