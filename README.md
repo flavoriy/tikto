@@ -161,28 +161,30 @@ http://localhost:4400/health
 
 The old `api:*` aliases were removed so there is no longer a misleading shared API service entrypoint.
 
-## Containers
+## Containers & Optimization
 
-Each deployable unit owns its Dockerfile:
+To optimize build performance and save CI resources, TikTo uses a **Docker Base Image** pattern:
+- **`base.Dockerfile`**: Contains the common Node.js 22 runtime, system dependencies (`openssl`, `libc6-compat`), and root `node_modules` (installed via `npm ci`).
+- **Service Dockerfiles**: Use a parameterized `ARG BASE_IMAGE` build argument defaulting to `tikto-base:local`. They copy compiled code from the base image instead of re-installing dependencies.
 
-```bash
-docker compose build tikto-web
-docker compose build tikto-gateway
-docker compose build tikto-profile
-docker compose build tikto-tasks
-docker compose build tikto-calendar
-docker compose build tikto-dashboard
-```
+### Local Development with Containers
 
-Run everything locally:
+1. Build the base image locally:
+   ```bash
+   npm run docker:build-base
+   ```
+2. Build the individual service containers (this will be nearly instantaneous):
+   ```bash
+   docker compose build
+   ```
+3. Run everything locally:
+   ```bash
+   docker compose up
+   ```
 
-```bash
-docker compose up --build
-```
-
-The image model is one image per deployable unit:
-
+The image repositories are:
 ```text
+ghcr.io/flavoriy/tikto-base
 ghcr.io/flavoriy/tikto-web
 ghcr.io/flavoriy/tikto-gateway
 ghcr.io/flavoriy/tikto-profile
@@ -236,7 +238,9 @@ The web BFF propagates `x-request-id` to internal services. If the incoming requ
 
 ## CI/CD and GitOps
 
-GitHub Actions runs CI before deploy. The deploy workflow then builds, scans, and pushes all six images (`web`, `gateway`, `profile`, `tasks`, `calendar`, `dashboard`).
+GitHub Actions runs CI and security checks before deploying. The deployment workflow behaves as follows:
+1. **Build Base Image**: It first builds and pushes the common dependencies base image `ghcr.io/flavoriy/tikto-base:${IMAGE_TAG}` to GitHub Container Registry (using GHA layer cache to complete in seconds if dependencies have not changed).
+2. **Build Microservices (Parallel Matrix)**: It launches parallel matrix jobs to build, scan (via Trivy), and push the microservice images (`web`, `gateway`, `profile`, `tasks`, `calendar`, `dashboard`), passing the built base image via `--build-arg BASE_IMAGE`. Only services with detected changes (calculated via `dorny/paths-filter`) are built and pushed.
 
 Production approval is handled by the GitHub Environment named `prod`. Configure required reviewers in GitHub:
 
