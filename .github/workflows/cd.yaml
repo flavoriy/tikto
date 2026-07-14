@@ -249,6 +249,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup AWS and Secrets
+        uses: ./.github/actions/setup-aws-and-secrets
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          region: ${{ env.AWS_REGION }}
+          shared-secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
+          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/secrets
+
       - name: Prepare Pipeline
         id: context
         uses: ./.github/actions/build-context
@@ -284,7 +292,7 @@ jobs:
           repo-url: ${{ env.GITOPS_REPO_URL }}
           branch: ${{ env.GITOPS_BRANCH }}
           manifest-file: ${{ steps.context.outputs.manifest-file }}
-          git-token: ${{ secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
+          git-token: ${{ env.GITOPS_TOKEN || secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
           image-replacements: ${{ steps.gitops-config.outputs.replacements }}
           commit-message: "chore(${{ inputs.deploy-env }}): deploy TikTo ${{ env.IMAGE_TAG }}"
 
