@@ -1,0 +1,21 @@
+name: Setup Node and Install Dependencies
+description: Setup Node.js environment and run npm ci with cache (assumes codebase is already checked out)
+
+inputs:
+  node-version:
+    description: Node version to use
+    required: false
+    default: '22'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: npm
+
+    - name: Install Dependencies
+      run: npm ci
+      shell: bash

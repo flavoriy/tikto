@@ -1,0 +1,6 @@
+{
+  "name": "@tikto/service-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs"
+}

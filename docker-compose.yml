@@ -1,0 +1,166 @@
+services:
+  tikto-web:
+    image: tikto-web:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      TIKTO_GATEWAY_API_URL: http://tikto-gateway:4000
+      TIKTO_PROFILE_API_URL: http://tikto-profile:4100
+      TIKTO_TASKS_API_URL: http://tikto-tasks:4200
+      TIKTO_CALENDAR_API_URL: http://tikto-calendar:4300
+      TIKTO_DASHBOARD_API_URL: http://tikto-dashboard:4400
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      tikto-gateway:
+        condition: service_healthy
+      tikto-profile:
+        condition: service_healthy
+      tikto-tasks:
+        condition: service_healthy
+      tikto-calendar:
+        condition: service_healthy
+      tikto-dashboard:
+        condition: service_healthy
+    networks:
+      - tikto-internal
+
+  tikto-gateway:
+    image: tikto-gateway:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4000
+      TIKTO_PROFILE_API_URL: http://tikto-profile:4100
+      TIKTO_TASKS_API_URL: http://tikto-tasks:4200
+      TIKTO_CALENDAR_API_URL: http://tikto-calendar:4300
+      TIKTO_DASHBOARD_API_URL: http://tikto-dashboard:4400
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4000"
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tikto-internal
+
+  tikto-profile:
+    image: tikto-profile:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/profile/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4100
+      PROFILE_DATABASE_URL: ${PROFILE_DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL}
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4100"
+    ports:
+      - "127.0.0.1:4100:4100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tikto-internal
+
+  tikto-tasks:
+    image: tikto-tasks:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/tasks/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4200
+      TASKS_DATABASE_URL: ${TASKS_DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL}
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4200"
+    ports:
+      - "127.0.0.1:4200:4200"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4200/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tikto-internal
+
+  tikto-calendar:
+    image: tikto-calendar:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/calendar/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4300
+      CALENDAR_DATABASE_URL: ${CALENDAR_DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL}
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4300"
+    ports:
+      - "127.0.0.1:4300:4300"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4300/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tikto-internal
+
+  tikto-dashboard:
+    image: tikto-dashboard:${TIKTO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 4400
+      TIKTO_TASKS_API_URL: http://tikto-tasks:4200
+      TIKTO_CALENDAR_API_URL: http://tikto-calendar:4300
+      TIKTO_INTERNAL_API_KEY: ${TIKTO_INTERNAL_API_KEY:-}
+    expose:
+      - "4400"
+    ports:
+      - "127.0.0.1:4400:4400"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4400/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tikto-internal
+
+networks:
+  tikto-internal:
+    driver: bridge

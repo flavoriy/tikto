@@ -1,0 +1,40 @@
+name: Setup AWS and Load Secrets
+description: Configure AWS credentials and load shared (and optionally app) secrets into GITHUB_ENV
+
+inputs:
+  role-to-assume:
+    description: AWS Role to assume via OIDC
+    required: true
+  region:
+    description: AWS Region
+    required: false
+    default: 'ap-southeast-1'
+  shared-secret-id:
+    description: Secrets Manager shared secret ID
+    required: true
+  app-secret-id:
+    description: Secrets Manager app-specific secret ID (optional)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-to-assume }}
+        aws-region: ${{ inputs.region }}
+
+    - name: Load Shared Secret
+      uses: ./.github/actions/load-aws-secrets
+      with:
+        secret-id: ${{ inputs.shared-secret-id }}
+        region: ${{ inputs.region }}
+
+    - name: Load App Secret
+      if: ${{ inputs.app-secret-id != '' }}
+      uses: ./.github/actions/load-aws-secrets
+      with:
+        secret-id: ${{ inputs.app-secret-id }}
+        region: ${{ inputs.region }}

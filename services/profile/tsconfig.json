@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.services.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist-services"
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../packages/service-runtime/src/**/*.ts",
+    "../../packages/shared/src/**/*.ts",
+    "../../packages/contracts/src/**/*.ts"
+  ]
+}

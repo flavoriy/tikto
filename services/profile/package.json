@@ -1,0 +1,11 @@
+{
+  "name": "@tikto/profile-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate": "prisma generate --schema prisma/schema.prisma",
+    "build": "npm run generate && tsc -p tsconfig.json && node ../../tooling/scripts/copy-service-prisma-client.mjs profile",
+    "start": "node ../../dist-services/services/profile/src/server.js"
+  },
+  "type": "commonjs"
+}
