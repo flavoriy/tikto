@@ -106,7 +106,7 @@ async function handleHealthCheck() {
       { service: "dashboard", env: "TIKTO_DASHBOARD_API_URL" },
     ],
   });
-  return ok({ ...health, gateway: "active", rateLimitMax: MAX_REQUESTS_PER_MINUTE, pipelineTest: "success" }, health.ok ? 200 : 503);
+  return ok({ ...health, gateway: "active", rateLimitMax: MAX_REQUESTS_PER_MINUTE, pipelineTest: "ci-cd-verified" }, health.ok ? 200 : 503);
 }
 
 function buildPassThroughHeaders(request: IncomingMessage, requestId: string): Headers {
