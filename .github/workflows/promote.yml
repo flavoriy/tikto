@@ -16,6 +16,12 @@ permissions:
   packages: write
   id-token: write
 
+env:
+  AWS_REGION: ap-southeast-1
+  AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  AWS_SHARED_SECRET_ID: tikto/shared
+  AWS_APP_SECRET_PREFIX: tikto
+
 jobs:
   ci-check:
     name: CI Verification
@@ -31,6 +37,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout TikTo Repo
+        uses: actions/checkout@v4
+
+      - name: Setup AWS and Secrets
+        uses: ./.github/actions/setup-aws-and-secrets
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          region: ${{ env.AWS_REGION }}
+          shared-secret-id: ${{ env.AWS_SHARED_SECRET_ID }}
+          app-secret-id: ${{ env.AWS_APP_SECRET_PREFIX }}/secrets
+
       - name: Resolve Tag Version
         id: version_step
         run: |
@@ -50,7 +67,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: 'Flavoriy/gitops-manifest'
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ env.GITOPS_TOKEN || secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
           path: 'gitops-manifest'
 
       - name: Log in to GHCR
