@@ -67,10 +67,13 @@ describe("Supabase env helpers", () => {
     });
   });
 
-  it("throws when required Supabase config is missing", () => {
+  it("does not throw and returns empty config when required Supabase config is missing", () => {
     clearSupabaseEnv();
 
-    expect(() => assertSupabaseConfig()).toThrow("Supabase is not configured.");
+    expect(assertSupabaseConfig()).toEqual({
+      url: "",
+      publishableKey: "",
+    });
   });
 
   it("returns config when URL and a publishable key are present", () => {
