@@ -11,8 +11,14 @@ import {
   readTiktoApiData,
 } from "@/lib/internal-services/internal";
 
+import { getSupabaseConfig } from "@shared/supabase/env";
+
 export const getAuthenticatedUser = cache(async function getAuthenticatedUser() {
   try {
+    const config = getSupabaseConfig();
+    if (!config.url || !config.publishableKey) {
+      return null;
+    }
     const supabase = await createClient();
     const {
       data: { user },
