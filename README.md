@@ -1,342 +1,175 @@
-# TikTo
+# 🌟 Flavoriy: Cloud-Native DevOps & Canary Rollout Platform
 
-[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=flavoriy_tikto)](https://sonarcloud.io/summary/new_code?id=flavoriy_tikto)
+Welcome to **Flavoriy**, a production-grade, end-to-end DevOps demonstration platform. Flavoriy showcases a modern, automated CI/CD pipeline, Infrastructure as Code (IaC), GitOps, and Progressive Canary Deployments. 
 
-TikTo is a workspace monorepo split into one public web/BFF app and five internal microservices (`gateway`, `profile`, `tasks`, `calendar`, `dashboard`).
+At the core of the platform is **TikTo**, a task and calendar planning application structured as a microservices monorepo.
 
-```text
-Browser
-  -> apps/web             # Next.js UI and BFF proxy routes
-     -> services/gateway   # API Gateway (rate limiting, route proxying, health aggregation)
-        -> services/profile   # profile domain and persistence
-        -> services/tasks     # task domain and persistence
-        -> services/calendar  # calendar/event domain and persistence
-        -> services/dashboard # dashboard composition over internal HTTP APIs
+---
+
+## 🗺️ System Architecture
+
+The following diagram illustrates the network flow, ingress routing via Istio, and telemetry/logging path using Fluent-Bit and AWS OpenSearch:
+
+```mermaid
+flowchart TD
+    %% Traffic Ingress
+    User([Public User]) -->|HTTP/HTTPS| ALB[AWS Application Load Balancer]
+    ALB -->|Istio Gateway| Ingress[Istio Ingress Gateway]
+    Ingress -->|VirtualService| Gateway[TikTo API Gateway]
+    
+    %% Gateway Routing to Microservices
+    Gateway -->|Internal Routing| Profile[Profile API]
+    Gateway -->|Internal Routing| Tasks[Tasks API]
+    Gateway -->|Internal Routing| Calendar[Calendar API]
+    Gateway -->|Internal Routing| Dashboard[Dashboard API]
+    
+    %% Database Layer
+    Profile --> DB[(Supabase Postgres)]
+    Tasks --> DB
+    Calendar --> DB
+    
+    %% Observability & Logs
+    Pods[All App & Gateway Pods] -->|Stdout Logs| FluentBit[Fluent-Bit DaemonSet]
+    FluentBit -->|HTTPS Private Link| OpenSearch[AWS OpenSearch Cluster]
+    
+    %% GitOps & Automation
+    Developer[DevOps / Git Push] -->|Git Tag v*| GitHub[GitHub Actions]
+    GitHub -->|Push Manifests| GitOpsRepo[GitOps Manifests Repo]
+    GitOpsRepo -->|Reconcile| ArgoCD[Argo CD]
+    ArgoCD -->|Progressive Delivery| ArgoRollouts[Argo Rollouts]
+    ArgoRollouts -->|Promotes / Rolls Back| Pods
 ```
 
-Only `apps/web` (and optionally `services/gateway` internally) should receive incoming client traffic. The internal services run behind Docker Compose or Kubernetes cluster networking.
-# TikTo Application
+---
 
-TikTo is a task and calendar planning application built with Next.js, TypeScript, Supabase, and Prisma. This repository contains the application source code and the CI/CD workflows used to validate, package, scan, publish, and deploy the application through GitOps.
+## 📂 Repository Structure
 
-The package name is `taskflow`; the Kubernetes workload is deployed with the `tikto` application slug.
+The Flavoriy project is organized into three major sub-repositories/directories, separating application logic, cloud infrastructure, and deployment manifests:
 
-## Key Capabilities
+| Folder / Repo | Purpose | Core Technologies |
+| :--- | :--- | :--- |
+| [**`./` (TikTo)**](./) | Application monorepo containing the web frontend, API gateway, and individual backend microservices. | Next.js, Node.js, Prisma, Supabase, Docker, GitHub Actions |
+| [**`../IaC`**](../IaC) | Infrastructure as Code configuration to provision the AWS cloud resources, EKS cluster, private OpenSearch, and networking. | Terraform, AWS (VPC, EKS, OpenSearch, Secrets Manager), Tailscale VPN |
+| [**`../gitops-manifest`**](../gitops-manifest) | Continuous Delivery repository containing Kustomize templates, Argo CD application specs, and Argo Rollouts progressive canary workflows. | Kustomize, Argo CD, Argo Rollouts, External Secrets Operator, Istio |
 
-- Next.js 16 App Router application with authenticated dashboard routes and API endpoints.
-- Task, event, profile, integration, and dashboard service layers backed by repository-based data access.
-- Supabase Auth, Supabase PostgreSQL, Prisma, Google OAuth foundations, Google Calendar/Tasks sync foundations, Telegram settings, and QStash reminder webhook foundations.
-- Reusable GitHub Actions workflows for ESLint analysis, TypeScript validation, unit testing, coverage reporting, production builds, and SonarCloud quality-gate checks.
-- Docker image delivery pipeline with environment-scoped version tags, Trivy HIGH/CRITICAL vulnerability scanning, and GHCR publishing.
-- Composite GitHub Actions for AWS Secrets Manager loading, image tag generation, GitOps manifest updates, and Argo CD deployment verification.
+---
 
-## Repository Layout
+## 🚀 Key Features
 
-```text
-apps/
-  web/
-    src/
-    Dockerfile
-    package.json
-    next.config.ts
-    tsconfig.json
+* **Microservice Monorepo (`TikTo`)**:
+  * **Frontend**: Next.js App Router acting as the user interface and Backend-for-Frontend (BFF).
+  * **API Gateway**: Performs rate-limiting, request proxying, and health aggregation across internal APIs.
+  * **Microservices**: Independently deployable services (`profile`, `tasks`, `calendar`, `dashboard`) communicating via internal cluster DNS.
+  * **Database Integration**: Powered by Prisma ORM connected to a managed Supabase PostgreSQL instance.
 
-services/
-  gateway/
-    src/
-    Dockerfile
-    package.json
-  profile/
-    src/
-    prisma/schema.prisma
-    Dockerfile
-    package.json
-  tasks/
-    src/
-    prisma/schema.prisma
-    Dockerfile
-    package.json
-  calendar/
-    src/
-    prisma/schema.prisma
-    Dockerfile
-    package.json
-  dashboard/
-    src/
-    Dockerfile
-    package.json
+* **Infrastructure as Code (`IaC`)**:
+  * **Modular Terraform**: Automated provisioning of VPC, Subnets, Route Tables, EKS cluster (with Spot instance node groups), AWS OpenSearch, and AWS Secrets Manager.
+  * **Secure Access**: Integration of Tailscale VPN to securely expose internal services (like Argo CD and OpenSearch Dashboards) without public exposure.
 
-packages/
-  contracts/        # DTO validation and serializers shared across service boundaries
-  service-runtime/  # HTTP, health, logging, error, and DB helpers for services
-  shared/           # generic utilities such as dates and Supabase env helpers
-```
+* **Automated GitOps & Canary Releases (`gitops-manifest`)**:
+  * **Declarative Sync**: Argo CD automatically reconciles local manifests with the EKS cluster.
+  * **Canary Release (Argo Rollouts)**: Leverages Istio to shift traffic incrementally (e.g. 10% $\rightarrow$ 50% $\rightarrow$ 80% $\rightarrow$ 100%).
+  * **Automated E2E Smoke Tests**: A Kubernetes job container executes 200 HTTP curl requests against the Canary service before promoting.
+  * **Log-Based Analysis**: Argo Rollouts queries AWS OpenSearch during the canary phase using JSON DSL. If the count of error logs (`error`, `failed`, `exception`) associated with the canary version exceeds the threshold, the release is aborted and automatically rolled back.
 
-Generated files and build outputs are not committed:
+---
 
-```text
-apps/web/.next/
-dist-services/
-services/*/src/generated/
-coverage/
-test-results/
-playwright-report/
-```
+## 🛠️ Getting Started & How to Run
 
-## Requirements
-
-- Node.js 24.x for local development parity with the current lockfile.
-- npm workspaces.
-- A Supabase project for authentication and Postgres.
-- Docker only if you want to run the container path locally.
-
-## Environment
-Available features:
-
-- Email/password authentication (with automatic registration if the account doesn't exist) and Google OAuth sign-in through Supabase Auth.
-- Protected dashboard layout with responsive navigation.
-- Task CRUD with status, priority, overdue, completed, upcoming, and board-oriented views.
-- Event CRUD with timed and all-day event handling.
-- Dashboard summaries for daily planning.
-- User profile and timezone settings.
-- Google integration routes for OAuth, import, incremental sync, retry, callback, and disconnect flows.
-- Telegram integration settings and reminder delivery foundations.
-- Health endpoint for Kubernetes readiness checks.
-
-In progress:
-
-- Calendar watch renewal exists as a route; longer-running automation is planned for production-style operation.
-- Existing Supabase databases should rerun the SQL setup/schema scripts when new reminder or sync columns are added.
-- End-to-end integration testing requires live third-party credentials and webhook configuration.
-
-## Technology Stack
-
-Create a root `.env` or `.env.local` from `.env.example`. Keep env files out of git.
-
-Minimum local values:
-## Repository Structure
-
-```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-TIKTO_GATEWAY_API_URL=http://localhost:4000
-TIKTO_PROFILE_API_URL=http://localhost:4100
-TIKTO_TASKS_API_URL=http://localhost:4200
-TIKTO_CALENDAR_API_URL=http://localhost:4300
-TIKTO_DASHBOARD_API_URL=http://localhost:4400
-TIKTO_INTERNAL_API_KEY=
-
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-DATABASE_URL=
-PROFILE_DATABASE_URL=
-TASKS_DATABASE_URL=
-CALENDAR_DATABASE_URL=
-TOKEN_ENCRYPTION_KEY=
-```
-
-Use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for newer Supabase projects. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is still accepted for older projects.
-
-## Local Development
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Build all internal services (including gateway):
-
-```bash
-npm run services:build
-```
-
-Run each process in a separate terminal:
-
-```bash
-npm run service:gateway:start
-npm run service:profile:start
-npm run service:tasks:start
-npm run service:calendar:start
-npm run service:dashboard:start
-npm run dev
-```
-
-Health checks:
-
-```text
-http://localhost:3000/api/health
-http://localhost:4000/health
-http://localhost:4100/health
-http://localhost:4200/health
-http://localhost:4300/health
-http://localhost:4400/health
-```
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Start `apps/web` with the Next.js dev server |
-| `npm run web:build` | Build the web app |
-| `npm run services:build` | Generate Prisma clients and compile all internal services |
-| `npm run service:gateway:build` | Build the API gateway service |
-| `npm run service:gateway:start` | Start the compiled gateway service |
-| `npm run service:profile:start` | Start the compiled profile service |
-| `npm run service:tasks:start` | Start the compiled tasks service |
-| `npm run service:calendar:start` | Start the compiled calendar service |
-| `npm run service:dashboard:start` | Start the compiled dashboard service |
-| `npm run typecheck` | Typecheck web, packages, and services |
-| `npm run test:run` | Run Vitest tests |
-| `npm run lint` | Run ESLint |
-
-The old `api:*` aliases were removed so there is no longer a misleading shared API service entrypoint.
-
-## Containers & Optimization
-
-To optimize build performance and save CI resources, TikTo uses a **Docker Base Image** pattern:
-- **`base.Dockerfile`**: Contains the common Node.js 22 runtime, system dependencies (`openssl`, `libc6-compat`), and root `node_modules` (installed via `npm ci`).
-- **Service Dockerfiles**: Use a parameterized `ARG BASE_IMAGE` build argument defaulting to `tikto-base:local`. They copy compiled code from the base image instead of re-installing dependencies.
-
-### Local Development with Containers
-
-1. Build the base image locally:
+### 1. Local Development (Docker Compose)
+To run the entire suite of services locally for testing:
+1. Navigate to the application folder:
    ```bash
-   npm run docker:build-base
+   cd TikTo
    ```
-2. Build the individual service containers (this will be nearly instantaneous):
+2. Copy `.env.example` to `.env` and fill in your Supabase database credentials.
+3. Start the services using Docker Compose:
    ```bash
-   docker compose build
+   docker-compose up --build
    ```
-3. Run everything locally:
+4. Access the web application at `http://localhost:3000`.
+
+### 2. Provisioning Infrastructure (Terraform)
+To provision the AWS environment:
+1. Navigate to the IaC folder:
    ```bash
-   docker compose up
+   cd ../IaC
+   ```
+2. Configure your `terraform.tfvars` with your AWS region, cluster name, and required keys (e.g., Tailscale auth key).
+3. Initialize and apply Terraform:
+   ```bash
+   terraform init
+   terraform apply
    ```
 
-The image repositories are:
-```text
-ghcr.io/flavoriy/tikto-base
-ghcr.io/flavoriy/tikto-web
-ghcr.io/flavoriy/tikto-gateway
-ghcr.io/flavoriy/tikto-profile
-ghcr.io/flavoriy/tikto-tasks
-ghcr.io/flavoriy/tikto-calendar
-ghcr.io/flavoriy/tikto-dashboard
-```
+### 3. Progressive Delivery (CI/CD Rollout)
+To trigger a new automated Canary release to Production:
+1. Make code changes in the `./TikTo` directory.
+2. Tag a new version and push to GitHub:
+   ```bash
+   git tag v2.0.15
+   git push origin v2.0.15
+   ```
+3. The GitHub Actions runner will build the images, scan them for vulnerabilities using Trivy, push them to GHCR, and update the Kustomize patches in `./gitops-manifest`.
+4. Argo CD will pick up the change, triggering Argo Rollouts to perform the automated canary release.
 
-## Kubernetes
+---
 
-Deploy each unit as its own Deployment and ClusterIP Service. Expose `tikto-web` and `tikto-gateway`.
+## 🔍 Troubleshooting & Common Issues
 
-Example internal URLs for the web pod:
+### 1. AWS ALB Ingress Gateway returns 503 (Target.NotInUse)
+* **Symptom**: Public web access through the Application Load Balancer fails with a `503 Service Temporarily Unavailable` error, and the AWS Console shows Target Group status as `Target.NotInUse`.
+* **Cause**: The public ALB is provisioned across specific availability zones (e.g., `ap-southeast-1a` and `ap-southeast-1b`), but the Istio Ingress Gateway pods were scheduled on a node in a different AZ (e.g., `ap-southeast-1c`). AWS ALB cannot route traffic to targets in AZs where the load balancer itself is disabled unless cross-zone load balancing is enabled.
+* **Solution**: Patch the `istio-ingress` deployment to restrict pod scheduling to the correct AZs. Add a node affinity or node selector patch:
+  ```yaml
+  spec:
+    template:
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: topology.kubernetes.io/zone
+                  operator: In
+                  values:
+                  - ap-southeast-1a
+                  - ap-southeast-1b
+  ```
 
-```env
-TIKTO_GATEWAY_API_URL=http://tikto-gateway:4000
-TIKTO_PROFILE_API_URL=http://tikto-profile:4100
-TIKTO_TASKS_API_URL=http://tikto-tasks:4200
-TIKTO_CALENDAR_API_URL=http://tikto-calendar:4300
-TIKTO_DASHBOARD_API_URL=http://tikto-dashboard:4400
-```
+### 2. Argo Rollouts OpenSearch Metric Queries Fail (HTTP GET vs. POST)
+* **Symptom**: The `opensearch-error-check` `AnalysisRun` fails with a controller evaluation error.
+* **Cause**: By default, Argo Rollouts' `web` metric provider uses the HTTP `GET` method. However, when querying OpenSearch APIs with a custom JSON DSL query payload in the `jsonBody` field, OpenSearch requires an HTTP `POST` request.
+* **Solution**: Set the HTTP method explicitly to `POST` inside the `AnalysisTemplate` definition:
+  ```yaml
+  provider:
+    web:
+      method: POST  # CRITICAL: Must be POST for OpenSearch search payloads
+      url: https://<opensearch-domain>/kubernetes-logs/_search
+      headers:
+        - key: Content-Type
+          value: application/json
+      jsonBody:
+        query:
+          ...
+  ```
 
-Use ConfigMaps for non-sensitive config such as service URLs and feature flags. Use Kubernetes Secrets, AWS Secrets Manager through External Secrets/CSI, or Vault Agent injection for sensitive values:
+### 3. Internal Gateway Services connection refused
+* **Symptom**: Microservices attempting to reach the API Gateway via `http://tikto-gateway:4000` fail with `Connection Refused` during active rollouts.
+* **Cause**: When using Argo Rollouts for progressive delivery, the main Kubernetes service selector is modified dynamically. Without active sidecar routing configured for the default service, stable traffic can be disrupted during the canary phase.
+* **Solution**: Route internal traffic to the dedicated stable service endpoint `http://tikto-gateway-stable:4000` or the canary service `http://tikto-gateway-canary:4000` to bypass dynamic selector changes.
 
-```text
-DATABASE_URL
-PROFILE_DATABASE_URL
-TASKS_DATABASE_URL
-CALENDAR_DATABASE_URL
-TOKEN_ENCRYPTION_KEY
-TIKTO_INTERNAL_API_KEY
-SUPABASE_SERVICE_ROLE_KEY
-```
-
-Runtime env var changes require a pod restart or rollout.
-Image tags are generated by the deployment workflow as environment-scoped run-number tags:
-
-```text
-ghcr.io/flavoriy/tikto:dev-42
-ghcr.io/flavoriy/tikto:prod-43
-```
-
-The tag format is `<environment>-<github.run_number>`. This keeps each deployment tag unique, avoids the old static `v0.0.1` pattern, and makes the running image traceable back to the GitHub Actions run.
-
-## Logs and Trace
-
-Internal services write structured JSON logs to stdout:
-
-- `service_listening` when a service starts.
-- `http_request` for each non-health request, including `requestId`, method, path, status, duration, and error code.
-Workflow entrypoints:
-
-- `.github/workflows/pr-checks.yml` (runs CI checks on pull requests)
-- `.github/workflows/deploy-dev.yml` (runs CI and deploys to Dev on push to `dev` branch)
-- `.github/workflows/deploy-prod.yml` (runs CI and deploys to Prod on push to `main` branch)
-
-Healthcheck request logs are hidden by default. Enable them while debugging:
-
-```bash
-LOG_HEALTHCHECKS=true npm run service:gateway:start
-```
-| Workflow | Responsibility |
-|---|---|
-| `.github/workflows/ci.yaml` | ESLint analysis, TypeScript validation, production build, unit tests with coverage, and SonarCloud analysis |
-| `.github/workflows/cd.yaml` | Docker build, HIGH/CRITICAL Trivy scan, GHCR push, GitOps manifest update, and Argo CD verification |
-
-The web BFF propagates `x-request-id` to internal services. If the incoming request does not have one, the web app generates it.
-
-## CI/CD and GitOps
-
-GitHub Actions runs CI and security checks before deploying. The deployment workflow behaves as follows:
-1. **Build Base Image**: It first builds and pushes the common dependencies base image `ghcr.io/flavoriy/tikto-base:${IMAGE_TAG}` to GitHub Container Registry (using GHA layer cache to complete in seconds if dependencies have not changed).
-2. **Build Microservices (Parallel Matrix)**: It launches parallel matrix jobs to build, scan (via Trivy), and push the microservice images (`web`, `gateway`, `profile`, `tasks`, `calendar`, `dashboard`), passing the built base image via `--build-arg BASE_IMAGE`. Only services with detected changes (calculated via `dorny/paths-filter`) are built and pushed.
-
-Production approval is handled by the GitHub Environment named `prod`. Configure required reviewers in GitHub:
-| Event | Behavior |
-|---|---|
-| Pull request to `dev` or `main` | Runs CI only; no deployment from pull requests |
-| Push or merge to `dev` | Runs CI and deploys to the development environment |
-| Push or merge to `main` | Runs CI and deploys through the protected `prod` GitHub Environment |
-| Manual dispatch | Runs the same workflow manually |
-
-## Delivery Workflow
-
-1. GitHub Actions validates linting, types, tests, coverage, and production build.
-2. SonarCloud runs quality analysis when configured for the event.
-3. The deployment job assumes an AWS role through GitHub Actions OIDC.
-4. Shared and environment-specific values are loaded from AWS Secrets Manager.
-5. Docker builds the application image with environment-specific public build arguments.
-6. Trivy scans the image and fails on HIGH or CRITICAL vulnerabilities.
-7. The approved image is pushed to GHCR.
-8. The matching GitOps image patch is updated:
-
-```text
-Settings -> Environments -> prod -> Required reviewers
-```
-
-GitOps manifests are stored outside this app repo in:
-9. Argo CD sync and image verification run when Argo CD access is configured.
-
-## CI/CD Configuration
-
-GitHub repository secret:
-
-| Secret | Purpose |
-|---|---|
-| `AWS_ROLE_TO_ASSUME` | IAM role ARN that GitHub Actions can assume with OIDC |
-
-```text
-https://github.com/Flavoriy/gitops-manifest.git
-```
-
-The expected manifest patch path is:
-
-```text
-apps/tikto/overlays/<env>/patch-image.yaml
-```
-
-That patch file contains image lines for all image repositories. The deploy workflow fails if any expected image repository is missing, which prevents a partial production update.
-
-The IAM role needs `secretsmanager:GetSecretValue` access for those secret IDs.
+### 4. Canary Rollouts Stuck in Suspended State
+* **Symptom**: The rollout progress stops at a step and remains in the `Paused` state indefinitely.
+* **Cause**: A canary step is defined with an empty pause block (e.g., `pause: {}`). This instructs the rollouts controller to wait for manual promotion (via `kubectl argo rollouts promote` or Argo CD UI).
+* **Solution**: For a fully automated CI/CD flow, define a duration for all pause steps:
+  ```yaml
+  spec:
+    strategy:
+      canary:
+        steps:
+          - setWeight: 20
+          - pause: { duration: 1m } # Automatically proceeds after 1 minute
+          - setWeight: 50
+          - pause: { duration: 1m }
+  ```
