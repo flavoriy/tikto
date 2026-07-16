@@ -12,7 +12,6 @@ export function LoginCard({
   errorMessage,
 }: {
   errorMessage: string | null;
-  supabaseConfigured?: boolean;
 }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
