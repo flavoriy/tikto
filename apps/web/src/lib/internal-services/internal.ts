@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { headers as nextHeaders } from "next/headers";
 
 import { AppError } from "@/lib/errors";
 
@@ -149,8 +150,24 @@ export function appendInternalHeaders(headers: Headers) {
 }
 
 export function appendTraceHeaders(headers: Headers) {
-  if (!headers.get("x-request-id")) {
-    headers.set("x-request-id", randomUUID());
+  try {
+    const incomingHeaders = nextHeaders();
+    
+    const incomingRequestId = incomingHeaders.get("x-request-id");
+    if (incomingRequestId) {
+      headers.set("x-request-id", incomingRequestId);
+    } else if (!headers.get("x-request-id")) {
+      headers.set("x-request-id", randomUUID());
+    }
+
+    const incomingCanary = incomingHeaders.get("x-canary");
+    if (incomingCanary) {
+      headers.set("x-canary", incomingCanary);
+    }
+  } catch {
+    if (!headers.get("x-request-id")) {
+      headers.set("x-request-id", randomUUID());
+    }
   }
 
   return headers;

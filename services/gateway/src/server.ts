@@ -119,6 +119,7 @@ function buildPassThroughHeaders(request: IncomingMessage, requestId: string): H
     "x-tikto-user-email",
     "x-tikto-user-name",
     "x-tikto-user-avatar-url",
+    "x-canary",
   ];
 
   for (const headerName of contextHeaders) {

@@ -94,6 +94,14 @@ function authenticatedHeaders(context: RequestContext) {
     headers.set("x-tikto-user-avatar-url", encodeURIComponent(context.avatarUrl));
   }
 
+  if (context.requestId) {
+    headers.set("x-request-id", context.requestId);
+  }
+
+  if (context.canary) {
+    headers.set("x-canary", context.canary);
+  }
+
   const internalKey = process.env.TIKTO_INTERNAL_API_KEY;
   if (internalKey) {
     headers.set("x-tikto-internal-key", internalKey);
