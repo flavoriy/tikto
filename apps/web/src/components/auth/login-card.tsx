@@ -185,12 +185,7 @@ export function LoginCard({
                 {errorMessage}
               </div>
             ) : null}
-            {!supabaseConfigured ? (
-              <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Supabase is not configured on this deployment. Add `NEXT_PUBLIC_SUPABASE_URL` and
-                `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, then redeploy.
-              </div>
-            ) : null}
+
             {localError ? (
               <div className="mt-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {localError}

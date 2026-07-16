@@ -90,12 +90,7 @@ jobs:
       - name: Determine Matrix
         id: set-matrix
         run: |
-          CHANGES='${{ steps.filter.outputs.changes }}'
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$CHANGES" = "[]" ] || [ -z "$CHANGES" ]; then
-            echo 'components=["web", "gateway", "profile", "tasks", "calendar", "dashboard"]' >> $GITHUB_OUTPUT
-          else
-            echo "components=${CHANGES}" >> $GITHUB_OUTPUT
-          fi
+          echo 'components=["web", "gateway", "profile", "tasks", "calendar", "dashboard"]' >> $GITHUB_OUTPUT
 
   build-base-image:
     name: Build & Push Base Image
