@@ -9,7 +9,7 @@ export function getSupabaseUrl() {
       return customWindow.__ENV.NEXT_PUBLIC_SUPABASE_URL;
     }
   }
-  const env = typeof process !== 'undefined' ? process.env : {};
+  const env = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
   return env.NEXT_PUBLIC_SUPABASE_URL || env["NEXT_PUBLIC_SUPABASE_URL"];
 }
 
@@ -20,7 +20,7 @@ export function getSupabasePublishableKey() {
       return customWindow.__ENV.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     }
   }
-  const env = typeof process !== 'undefined' ? process.env : {};
+  const env = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
   return (
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
