@@ -1,175 +1,86 @@
-# 🌟 Flavoriy: Cloud-Native DevOps & Canary Rollout Platform
+# 📱 TikTo Application Monorepo
 
-Welcome to **Flavoriy**, a production-grade, end-to-end DevOps demonstration platform. Flavoriy showcases a modern, automated CI/CD pipeline, Infrastructure as Code (IaC), GitOps, and Progressive Canary Deployments. 
+TikTo is a task and calendar planning application structured as a monorepo containing a public web frontend/BFF and five internal microservices.
 
-At the core of the platform is **TikTo**, a task and calendar planning application structured as a microservices monorepo.
+## 🏗️ Architecture & Service Layout
+
+* **`apps/web`**: Next.js 16 (App Router) user interface and Backend-for-Frontend (BFF) proxy.
+* **`services/gateway`**: Express-based API Gateway. Handles rate-limiting, internal route proxying, and health aggregation.
+* **`services/profile`**: Profile domain service (Prisma + Supabase Postgres).
+* **`services/tasks`**: Task management service (Prisma + Supabase Postgres).
+* **`services/calendar`**: Calendar event service (Prisma + Supabase Postgres).
+* **`services/dashboard`**: Composition service that aggregates data from profile, tasks, and calendar.
 
 ---
 
-## 🗺️ System Architecture
-
-The following diagram illustrates the network flow, ingress routing via Istio, and telemetry/logging path using Fluent-Bit and AWS OpenSearch:
+## 🔄 CI/CD Workflow
 
 ```mermaid
 flowchart TD
-    %% Traffic Ingress
-    User([Public User]) -->|HTTP/HTTPS| ALB[AWS Application Load Balancer]
-    ALB -->|Istio Gateway| Ingress[Istio Ingress Gateway]
-    Ingress -->|VirtualService| Gateway[TikTo API Gateway]
+    Developer[Developer] -->|Pull Request| PR[PR Validation Pipeline]
+    PR -->|Runs| Lint[ESLint / Typecheck]
+    PR -->|Runs| Test[Vitest / Coverage]
+    PR -->|Scans| Sonar[SonarCloud Quality Gate]
     
-    %% Gateway Routing to Microservices
-    Gateway -->|Internal Routing| Profile[Profile API]
-    Gateway -->|Internal Routing| Tasks[Tasks API]
-    Gateway -->|Internal Routing| Calendar[Calendar API]
-    Gateway -->|Internal Routing| Dashboard[Dashboard API]
-    
-    %% Database Layer
-    Profile --> DB[(Supabase Postgres)]
-    Tasks --> DB
-    Calendar --> DB
-    
-    %% Observability & Logs
-    Pods[All App & Gateway Pods] -->|Stdout Logs| FluentBit[Fluent-Bit DaemonSet]
-    FluentBit -->|HTTPS Private Link| OpenSearch[AWS OpenSearch Cluster]
-    
-    %% GitOps & Automation
-    Developer[DevOps / Git Push] -->|Git Tag v*| GitHub[GitHub Actions]
-    GitHub -->|Push Manifests| GitOpsRepo[GitOps Manifests Repo]
-    GitOpsRepo -->|Reconcile| ArgoCD[Argo CD]
-    ArgoCD -->|Progressive Delivery| ArgoRollouts[Argo Rollouts]
-    ArgoRollouts -->|Promotes / Rolls Back| Pods
+    Developer -->|Merge / Git Tag| Tag[Release Pipeline]
+    Tag -->|Authenticates| OIDC[AWS OIDC Credentials]
+    Tag -->|Loads| Secrets[Secrets Manager Variables]
+    Tag -->|Builds| Docker[Docker Build]
+    Tag -->|Scans| Trivy[Trivy Vulnerability Scan]
+    Tag -->|Pushes| GHCR[Publish to GHCR]
+    GHCR -->|Promotes| GitOps[Update gitops-manifest patch-image.yaml]
+```
+
+### 1. Pull Request Validation
+Every pull request triggers:
+* **Linting & Typechecking**: `npm run lint` & `npm run typecheck`
+* **Unit Testing**: Vitest testing with coverage reports
+* **Code Quality**: SonarCloud Quality Gate analysis
+
+### 2. Container Delivery & Security
+On a merge or new tag (e.g. `v2.0.15`):
+* GHA builds Docker images using a optimized **Base Dockerfile** pattern to save build time.
+* **Trivy Scanner** checks for HIGH and CRITICAL vulnerabilities in the built images.
+* Images are published to GitHub Container Registry (GHCR) with environment-specific tags.
+
+### 3. GitOps Automation
+Once the image is pushed, the CD pipeline automatically commits the new image tag to the `gitops-manifest` repository, triggering Argo CD deployment.
+
+---
+
+## 🛠️ Useful Commands
+
+### Local Development
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+2. **Build internal microservices & generate Prisma client**:
+   ```bash
+   npm run services:build
+   ```
+3. **Run local dev server**:
+   * Next.js Web: `npm run dev`
+   * API Gateway: `npm run service:gateway:start`
+   * Profile Service: `npm run service:profile:start`
+   * Tasks Service: `npm run service:tasks:start`
+   * Calendar Service: `npm run service:calendar:start`
+   * Dashboard Service: `npm run service:dashboard:start`
+
+### Running with Docker Compose
+To run all services locally in containers:
+```bash
+docker-compose up --build
 ```
 
 ---
 
-## 📂 Repository Structure
+## 🔍 Troubleshooting & Fixes
 
-The Flavoriy project is organized into three major sub-repositories/directories, separating application logic, cloud infrastructure, and deployment manifests:
-
-| Folder / Repo | Purpose | Core Technologies |
-| :--- | :--- | :--- |
-| [**`./` (TikTo)**](./) | Application monorepo containing the web frontend, API gateway, and individual backend microservices. | Next.js, Node.js, Prisma, Supabase, Docker, GitHub Actions |
-| [**`../IaC`**](../IaC) | Infrastructure as Code configuration to provision the AWS cloud resources, EKS cluster, private OpenSearch, and networking. | Terraform, AWS (VPC, EKS, OpenSearch, Secrets Manager), Tailscale VPN |
-| [**`../gitops-manifest`**](../gitops-manifest) | Continuous Delivery repository containing Kustomize templates, Argo CD application specs, and Argo Rollouts progressive canary workflows. | Kustomize, Argo CD, Argo Rollouts, External Secrets Operator, Istio |
-
----
-
-## 🚀 Key Features
-
-* **Microservice Monorepo (`TikTo`)**:
-  * **Frontend**: Next.js App Router acting as the user interface and Backend-for-Frontend (BFF).
-  * **API Gateway**: Performs rate-limiting, request proxying, and health aggregation across internal APIs.
-  * **Microservices**: Independently deployable services (`profile`, `tasks`, `calendar`, `dashboard`) communicating via internal cluster DNS.
-  * **Database Integration**: Powered by Prisma ORM connected to a managed Supabase PostgreSQL instance.
-
-* **Infrastructure as Code (`IaC`)**:
-  * **Modular Terraform**: Automated provisioning of VPC, Subnets, Route Tables, EKS cluster (with Spot instance node groups), AWS OpenSearch, and AWS Secrets Manager.
-  * **Secure Access**: Integration of Tailscale VPN to securely expose internal services (like Argo CD and OpenSearch Dashboards) without public exposure.
-
-* **Automated GitOps & Canary Releases (`gitops-manifest`)**:
-  * **Declarative Sync**: Argo CD automatically reconciles local manifests with the EKS cluster.
-  * **Canary Release (Argo Rollouts)**: Leverages Istio to shift traffic incrementally (e.g. 10% $\rightarrow$ 50% $\rightarrow$ 80% $\rightarrow$ 100%).
-  * **Automated E2E Smoke Tests**: A Kubernetes job container executes 200 HTTP curl requests against the Canary service before promoting.
-  * **Log-Based Analysis**: Argo Rollouts queries AWS OpenSearch during the canary phase using JSON DSL. If the count of error logs (`error`, `failed`, `exception`) associated with the canary version exceeds the threshold, the release is aborted and automatically rolled back.
-
----
-
-## 🛠️ Getting Started & How to Run
-
-### 1. Local Development (Docker Compose)
-To run the entire suite of services locally for testing:
-1. Navigate to the application folder:
-   ```bash
-   cd TikTo
-   ```
-2. Copy `.env.example` to `.env` and fill in your Supabase database credentials.
-3. Start the services using Docker Compose:
-   ```bash
-   docker-compose up --build
-   ```
-4. Access the web application at `http://localhost:3000`.
-
-### 2. Provisioning Infrastructure (Terraform)
-To provision the AWS environment:
-1. Navigate to the IaC folder:
-   ```bash
-   cd ../IaC
-   ```
-2. Configure your `terraform.tfvars` with your AWS region, cluster name, and required keys (e.g., Tailscale auth key).
-3. Initialize and apply Terraform:
-   ```bash
-   terraform init
-   terraform apply
-   ```
-
-### 3. Progressive Delivery (CI/CD Rollout)
-To trigger a new automated Canary release to Production:
-1. Make code changes in the `./TikTo` directory.
-2. Tag a new version and push to GitHub:
-   ```bash
-   git tag v2.0.15
-   git push origin v2.0.15
-   ```
-3. The GitHub Actions runner will build the images, scan them for vulnerabilities using Trivy, push them to GHCR, and update the Kustomize patches in `./gitops-manifest`.
-4. Argo CD will pick up the change, triggering Argo Rollouts to perform the automated canary release.
-
----
-
-## 🔍 Troubleshooting & Common Issues
-
-### 1. AWS ALB Ingress Gateway returns 503 (Target.NotInUse)
-* **Symptom**: Public web access through the Application Load Balancer fails with a `503 Service Temporarily Unavailable` error, and the AWS Console shows Target Group status as `Target.NotInUse`.
-* **Cause**: The public ALB is provisioned across specific availability zones (e.g., `ap-southeast-1a` and `ap-southeast-1b`), but the Istio Ingress Gateway pods were scheduled on a node in a different AZ (e.g., `ap-southeast-1c`). AWS ALB cannot route traffic to targets in AZs where the load balancer itself is disabled unless cross-zone load balancing is enabled.
-* **Solution**: Patch the `istio-ingress` deployment to restrict pod scheduling to the correct AZs. Add a node affinity or node selector patch:
-  ```yaml
-  spec:
-    template:
-      spec:
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: topology.kubernetes.io/zone
-                  operator: In
-                  values:
-                  - ap-southeast-1a
-                  - ap-southeast-1b
-  ```
-
-### 2. Argo Rollouts OpenSearch Metric Queries Fail (HTTP GET vs. POST)
-* **Symptom**: The `opensearch-error-check` `AnalysisRun` fails with a controller evaluation error.
-* **Cause**: By default, Argo Rollouts' `web` metric provider uses the HTTP `GET` method. However, when querying OpenSearch APIs with a custom JSON DSL query payload in the `jsonBody` field, OpenSearch requires an HTTP `POST` request.
-* **Solution**: Set the HTTP method explicitly to `POST` inside the `AnalysisTemplate` definition:
-  ```yaml
-  provider:
-    web:
-      method: POST  # CRITICAL: Must be POST for OpenSearch search payloads
-      url: https://<opensearch-domain>/kubernetes-logs/_search
-      headers:
-        - key: Content-Type
-          value: application/json
-      jsonBody:
-        query:
-          ...
-  ```
-
-### 3. Internal Gateway Services connection refused
-* **Symptom**: Microservices attempting to reach the API Gateway via `http://tikto-gateway:4000` fail with `Connection Refused` during active rollouts.
-* **Cause**: When using Argo Rollouts for progressive delivery, the main Kubernetes service selector is modified dynamically. Without active sidecar routing configured for the default service, stable traffic can be disrupted during the canary phase.
-* **Solution**: Route internal traffic to the dedicated stable service endpoint `http://tikto-gateway-stable:4000` or the canary service `http://tikto-gateway-canary:4000` to bypass dynamic selector changes.
-
-### 4. Canary Rollouts Stuck in Suspended State
-* **Symptom**: The rollout progress stops at a step and remains in the `Paused` state indefinitely.
-* **Cause**: A canary step is defined with an empty pause block (e.g., `pause: {}`). This instructs the rollouts controller to wait for manual promotion (via `kubectl argo rollouts promote` or Argo CD UI).
-* **Solution**: For a fully automated CI/CD flow, define a duration for all pause steps:
-  ```yaml
-  spec:
-    strategy:
-      canary:
-        steps:
-          - setWeight: 20
-          - pause: { duration: 1m } # Automatically proceeds after 1 minute
-          - setWeight: 50
-          - pause: { duration: 1m }
+### ❌ Connection Refused on Internal Gateway Calls
+* **Issue**: Pods attempting to call the API Gateway via `http://tikto-gateway:4000` fail with `Connection Refused` during active rollouts.
+* **Cause**: Argo Rollouts dynamically updates the selector for the main `tikto-gateway` service to shift traffic. Without an Istio sidecar inside a pod, it cannot resolve the shifting backend endpoint.
+* **Solution**: Change the target address to the dedicated stable gateway endpoint:
+  ```env
+  TIKTO_GATEWAY_API_URL=http://tikto-gateway-stable:4000
   ```
