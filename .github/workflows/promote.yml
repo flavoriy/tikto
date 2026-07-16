@@ -41,7 +41,7 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout Primary Repo
+      - name: Checkout TikTo Repo
         uses: actions/checkout@v4
 
       - name: Setup AWS and Secrets

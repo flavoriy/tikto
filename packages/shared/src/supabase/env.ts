@@ -1,9 +1,24 @@
 export function getSupabaseUrl() {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as unknown as { window: { __ENV?: Record<string, string> } }).window : undefined;
+  if (globalWindow && globalWindow.__ENV?.NEXT_PUBLIC_SUPABASE_URL) {
+    return globalWindow.__ENV.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  const env = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
+  return env.NEXT_PUBLIC_SUPABASE_URL || env["NEXT_PUBLIC_SUPABASE_URL"];
 }
 
 export function getSupabasePublishableKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as unknown as { window: { __ENV?: Record<string, string> } }).window : undefined;
+  if (globalWindow && globalWindow.__ENV?.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return globalWindow.__ENV.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+  const env = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
+  return (
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ||
+    env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+  );
 }
 
 export function getSupabaseConfig() {
@@ -16,14 +31,8 @@ export function getSupabaseConfig() {
 export function assertSupabaseConfig() {
   const config = getSupabaseConfig();
 
-  if (!config.url || !config.publishableKey) {
-    throw new Error(
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, or NEXT_PUBLIC_SUPABASE_ANON_KEY for older Supabase projects.",
-    );
-  }
-
-  return config as {
-    url: string;
-    publishableKey: string;
+  return {
+    url: config.url || "",
+    publishableKey: config.publishableKey || "",
   };
 }

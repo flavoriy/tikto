@@ -10,6 +10,7 @@ import {
 import { createDashboardDomain } from "./domain";
 
 const domain = createDashboardDomain();
+console.log("Starting dashboard service v2...");
 
 createJsonServiceServer({
   serviceName: "tikto-dashboard",

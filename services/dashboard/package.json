@@ -1,6 +1,6 @@
 {
   "name": "@tikto/dashboard-service",
-  "version": "2.0.3",
+  "version": "2.0.10",
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",

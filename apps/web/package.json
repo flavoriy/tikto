@@ -1,6 +1,6 @@
 {
   "name": "@tikto/web",
-  "version": "2.0.3",
+  "version": "2.0.10",
   "private": true,
   "scripts": {
     "dev": "next dev",

@@ -16,6 +16,8 @@ export type RequestContext = {
   email?: string;
   name?: string;
   avatarUrl?: string;
+  canary?: string;
+  requestId?: string;
 };
 
 export type ServiceRoute = (input: {
@@ -85,6 +87,8 @@ export function requireContext(request: IncomingMessage): RequestContext {
     email: decodedHeaderValue(request, "x-tikto-user-email"),
     name: decodedHeaderValue(request, "x-tikto-user-name"),
     avatarUrl: decodedHeaderValue(request, "x-tikto-user-avatar-url"),
+    canary: headerValue(request, "x-canary"),
+    requestId: headerValue(request, "x-request-id"),
   };
 }
 

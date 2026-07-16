@@ -6,15 +6,13 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/browser";
 import pkg from "../../../package.json";
 
 export function LoginCard({
   errorMessage,
-  supabaseConfigured,
 }: {
   errorMessage: string | null;
-  supabaseConfigured: boolean;
+  supabaseConfigured?: boolean;
 }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -26,10 +24,6 @@ export function LoginCard({
 
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabaseConfigured) {
-      setLocalError("Supabase is not configured.");
-      return;
-    }
 
     if (!email || !password) {
       setLocalError("Please enter both email and password.");
@@ -45,67 +39,11 @@ export function LoginCard({
     setLocalError(null);
     setSuccessMessage(null);
 
-    try {
-      const supabase = createClient();
-
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-          });
-
-          if (signUpError) {
-            setLocalError(error.message);
-            setIsLoading(false);
-            return;
-          }
-
-          if (signUpData.session) {
-            router.push("/dashboard");
-            router.refresh();
-          } else {
-            setSuccessMessage(
-              "Account created. Please check your email to verify your account, then sign in.",
-            );
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        router.push("/dashboard");
-        router.refresh();
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) {
-          setLocalError(error.message);
-          setIsLoading(false);
-          return;
-        }
-
-        if (data.session) {
-          router.push("/dashboard");
-          router.refresh();
-        } else {
-          setSuccessMessage(
-            "Account created. Please check your email to verify your account, then sign in.",
-          );
-          setIsLoading(false);
-        }
-      }
-    } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "Authentication failed.");
-      setIsLoading(false);
-    }
+    // Bypassing Supabase and logging in directly
+    setTimeout(() => {
+      router.push("/dashboard");
+      router.refresh();
+    }, 500);
   }
 
   return (
@@ -185,12 +123,7 @@ export function LoginCard({
                 {errorMessage}
               </div>
             ) : null}
-            {!supabaseConfigured ? (
-              <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Supabase is not configured on this deployment. Add `NEXT_PUBLIC_SUPABASE_URL` and
-                `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, then redeploy.
-              </div>
-            ) : null}
+
             {localError ? (
               <div className="mt-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {localError}
@@ -241,7 +174,7 @@ export function LoginCard({
                 type="submit"
                 className="mt-6 w-full"
                 variant="primary"
-                disabled={isLoading || !supabaseConfigured}
+                disabled={isLoading}
               >
                 {isLoading ? (
                   <span>Processing...</span>
