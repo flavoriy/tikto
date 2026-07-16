@@ -1,6 +1,6 @@
 {
   "name": "@tikto/profile-service",
-  "version": "2.0.10",
+  "version": "3.0.3",
   "private": true,
   "scripts": {
     "generate": "prisma generate --schema prisma/schema.prisma",
