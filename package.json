@@ -1,6 +1,6 @@
 {
   "name": "tikto",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "private": true,
   "scripts": {
     "dev": "npm --workspace @tikto/web run dev",
@@ -17,9 +17,9 @@
     "prisma:format": "prisma format --schema services/profile/prisma/schema.prisma && prisma format --schema services/tasks/prisma/schema.prisma && prisma format --schema services/calendar/prisma/schema.prisma",
     "services:generate": "prisma generate --schema services/profile/prisma/schema.prisma && prisma generate --schema services/tasks/prisma/schema.prisma && prisma generate --schema services/calendar/prisma/schema.prisma",
     "services:build": "npm run services:generate && tsc -p tsconfig.services.json && npm run services:copy-prisma",
-    "service:profile:build": "prisma generate --schema services/profile/prisma/schema.prisma && tsc -p services/profile/tsconfig.json && node tooling/scripts/copy-service-prisma-client.mjs profile",
-    "service:tasks:build": "prisma generate --schema services/tasks/prisma/schema.prisma && tsc -p services/tasks/tsconfig.json && node tooling/scripts/copy-service-prisma-client.mjs tasks",
-    "service:calendar:build": "prisma generate --schema services/calendar/prisma/schema.prisma && tsc -p services/calendar/tsconfig.json && node tooling/scripts/copy-service-prisma-client.mjs calendar",
+    "service:profile:build": "prisma generate --schema services/profile/prisma/schema.prisma && tsc -p services/profile/tsconfig.json && node scripts/copy-service-prisma-client.mjs profile",
+    "service:tasks:build": "prisma generate --schema services/tasks/prisma/schema.prisma && tsc -p services/tasks/tsconfig.json && node scripts/copy-service-prisma-client.mjs tasks",
+    "service:calendar:build": "prisma generate --schema services/calendar/prisma/schema.prisma && tsc -p services/calendar/tsconfig.json && node scripts/copy-service-prisma-client.mjs calendar",
     "service:dashboard:build": "tsc -p services/dashboard/tsconfig.json",
     "service:gateway:build": "tsc -p services/gateway/tsconfig.json",
     "service:profile:start": "node dist-services/services/profile/src/server.js",
@@ -27,7 +27,7 @@
     "service:calendar:start": "node dist-services/services/calendar/src/server.js",
     "service:dashboard:start": "node dist-services/services/dashboard/src/server.js",
     "service:gateway:start": "node dist-services/services/gateway/src/server.js",
-    "services:copy-prisma": "node tooling/scripts/copy-service-prisma-client.mjs profile tasks calendar",
+    "services:copy-prisma": "node scripts/copy-service-prisma-client.mjs profile tasks calendar",
     "docker:build-base": "docker build -t tikto-base:local -f base.Dockerfile ."
   },
   "dependencies": {
