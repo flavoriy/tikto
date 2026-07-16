@@ -149,9 +149,9 @@ export function appendInternalHeaders(headers: Headers) {
   return headers;
 }
 
-export function appendTraceHeaders(headers: Headers) {
+export async function appendTraceHeaders(headers: Headers) {
   try {
-    const incomingHeaders = nextHeaders();
+    const incomingHeaders = await nextHeaders();
     
     const incomingRequestId = incomingHeaders.get("x-request-id");
     if (incomingRequestId) {
@@ -182,7 +182,7 @@ export function buildTiktoApiUrl(path: string) {
 }
 
 export async function fetchTiktoService(service: TiktoServiceName, path: string, init: RequestInit = {}) {
-  const headers = appendTraceHeaders(appendInternalHeaders(new Headers(init.headers)));
+  const headers = await appendTraceHeaders(appendInternalHeaders(new Headers(init.headers)));
 
   return fetch(buildTiktoServiceUrl(service, path), {
     ...init,
