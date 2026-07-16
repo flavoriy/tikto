@@ -35,6 +35,10 @@ jobs:
     name: Promote Release
     needs: ci-check
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
 
     steps:
       - name: Checkout TikTo Repo
