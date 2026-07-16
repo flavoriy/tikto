@@ -1,5 +1,5 @@
 export function getSupabaseUrl() {
-  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as unknown as { window: { __ENV?: Record<string, string> } }).window : undefined;
   if (globalWindow && globalWindow.__ENV?.NEXT_PUBLIC_SUPABASE_URL) {
     return globalWindow.__ENV.NEXT_PUBLIC_SUPABASE_URL;
   }
@@ -8,7 +8,7 @@ export function getSupabaseUrl() {
 }
 
 export function getSupabasePublishableKey() {
-  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+  const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as unknown as { window: { __ENV?: Record<string, string> } }).window : undefined;
   if (globalWindow && globalWindow.__ENV?.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
     return globalWindow.__ENV.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   }
