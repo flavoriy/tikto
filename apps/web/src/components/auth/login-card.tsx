@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import pkg from "../../../package.json";
 
 export function LoginCard({
-  errorMessage,
+  errorMessage
 }: {
   errorMessage: string | null;
 }) {
