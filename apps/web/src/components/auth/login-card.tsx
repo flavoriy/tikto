@@ -56,7 +56,7 @@ export function LoginCard({
             </span>
             <div>
               <p className="text-3xl font-semibold tracking-[-0.04em]">TikTo</p>
-              <p className="mt-1 text-sm text-muted">Daily planning with automated progressive canary delivery.</p>
+              <p className="mt-1 text-sm text-muted">Enterprise-grade task management with progressive canary delivery.</p>
             </div>
           </div>
           <h1 className="mt-8 max-w-xl text-4xl font-semibold leading-tight tracking-[-0.04em] md:text-5xl">

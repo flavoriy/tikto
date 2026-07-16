@@ -1,4 +1,4 @@
-# 📱 TikTo Application Monorepo
+# 📱 TikTo Application 
 
 TikTo is a task and calendar planning application structured as a monorepo containing a public web frontend/BFF and five internal microservices.
 
