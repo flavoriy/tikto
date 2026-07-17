@@ -61,7 +61,8 @@
   },
   "overrides": {
     "sigstore": "^4.1.1",
-    "picomatch": "^4.0.4"
+    "picomatch": "^4.0.4",
+    "estree-walker": "3.0.3"
   },
   "workspaces": [
     "apps/*",
