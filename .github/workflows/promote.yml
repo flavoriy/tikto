@@ -35,6 +35,7 @@ jobs:
     name: Promote Release
     needs: ci-check
     runs-on: ubuntu-latest
+    environment: prod
     permissions:
       contents: write
       packages: write
