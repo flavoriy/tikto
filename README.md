@@ -1,12 +1,8 @@
-# 📱 TikTo
-
-TikTo is a task & calendar planning application, structured as a monorepo with one web frontend (also acting as BFF) and five internal microservices.
-
-> 🔗 Related repos: [gitops-manifest](https://github.com/flavoriy/gitops-manifest) (where new images get deployed) · [Infrastructure-as-Code](https://github.com/flavoriy/Infrastructure-as-Code) (the underlying EKS infrastructure)
-
+# TikTo
+TikTo is a task & calendar planning application, structured as a monorepo with one web frontend and five internal microservices backend.
 ---
 
-## 🏗️ Architecture & Services
+## Architecture & Services
 
 | Service | Role |
 |---|---|
@@ -19,7 +15,7 @@ TikTo is a task & calendar planning application, structured as a monorepo with o
 
 ---
 
-## 🔄 CI/CD Workflow
+## CI/CD Workflow
 
 ```mermaid
 flowchart TD
@@ -81,21 +77,6 @@ npm run service:tasks:start              # Tasks Service
 npm run service:calendar:start           # Calendar Service
 npm run service:dashboard:start          # Dashboard Service
 ```
-
----
-
-## 🔍 Troubleshooting
-
-### ❌ Connection Refused on internal Gateway calls
-
-- **Issue**: pods calling the API Gateway via `http://tikto-gateway:4000` get `Connection Refused` during active rollouts.
-- **Cause**: Argo Rollouts dynamically shifts the selector of the `tikto-gateway` service to move traffic; without an Istio sidecar, the pod can't resolve the shifting backend.
-- **Fix**: point directly at the dedicated stable endpoint instead of the service currently being rolled out:
-
-```
-TIKTO_GATEWAY_API_URL=http://tikto-gateway-stable:4000
-```
-
 ---
 
 ## 🧱 Tech stack
