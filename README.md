@@ -34,7 +34,6 @@ flowchart TD
 ```
 
 ### 1. PR Validation
-
 Every pull request triggers:
 Linting & Typechecking: npm run lint & npm run typecheck
 Unit Testing: Vitest with coverage reports
